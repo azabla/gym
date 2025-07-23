@@ -35,18 +35,17 @@ class PaymentFactory extends Factory
     public function configure()
     {
         return $this->afterMaking(function (Payment $payment) {
-            // Get or create user
-            $user = User::where('role', 'member')->inRandomOrder()->first()
-                ?? User::factory()->create(['role' => 'member']);
+            // // Get or create user
+            // $user = User::where('role', 'member')->inRandomOrder()->first()
+            //     ?? User::factory()->create(['role' => 'member']);
 
             // Get or create member for user
-            $member = Member::firstWhere('user_id', $user->id)
-                ?? Member::factory()->create(['user_id' => $user->id]);
+            // $member = Member::firstWhere('user_id', $user->id)
+            //     ?? Member::factory()->create(['user_id' => $user->id]);
 
             // Get or create package
-            $package = Package::inRandomOrder()->first()
-                ?? Package::factory()->create();
-
+            $package = $payment->member->package;
+            $member = $payment->member;
             // Determine the new payment's valid_from
             $lastPayment = $member->payments()->latest('valid_until')->first();
             $start = Carbon::parse($lastPayment ? $lastPayment->valid_until : now());
@@ -64,8 +63,6 @@ class PaymentFactory extends Factory
             };
 
             // Assign to payment
-            $payment->user_id = $user->id;
-            $payment->member_id = $member->id;
             $payment->package_id = $package->id;
             $payment->amount = $package->price * $member->duration_value ?? $this->faker->randomFloat(2, 100, 1000);
             $payment->valid_from = $start;
