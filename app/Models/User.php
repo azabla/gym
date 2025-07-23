@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -19,11 +21,30 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'role',
         'name',
+        'username',
         'email',
         'password',
+        'dob',
+        'gender',
+        'address',
+        'phone',
+        'avatar',
     ];
 
+    //relationships
+    
+    public function member()
+    {
+        return $this->hasOne(Member::class);
+    }
+
+    // === Accessor: Age from DOB ===
+    public function getAgeAttribute()
+    {
+        return $this->dob ? Carbon::parse($this->dob)->age : null;
+    }
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -44,6 +65,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'dob' => 'date',
         ];
     }
 
