@@ -23,7 +23,7 @@ class Member extends Model
     ];
      public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belnogsTo(User::class);
     }
 
     public function package()

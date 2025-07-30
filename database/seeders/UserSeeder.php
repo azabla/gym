@@ -13,11 +13,11 @@ class UserSeeder extends Seeder
      * Run the database seeds.
      */
     public function run(): void
-    {
-        // Create Admin User
-        User::factory()->create([
+    {User::factory()->create([
             'name' => 'Admin User',
-            'email' => 'admin@example.com',
+            
+        // Create Admin User
+        'email' => 'admin@example.com',
             'role' => 'admin',
             'password' => Hash::make('password123'), 
         ]);
