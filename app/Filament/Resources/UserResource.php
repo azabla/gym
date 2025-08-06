@@ -6,7 +6,13 @@ use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use Filament\Forms\FormsComponent;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -25,35 +31,83 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('role')
-                    ->required(),
-                Forms\Components\TextInput::make('name')
+                Section::make('User Information')
+                ->description('Fill in the user details.')
+                ->schema([
+                TextInput::make('first_name')
+                    ->label('First Name')
                     ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('username')
+                    ->reactive()
+                    ->minLength(2)
+                    ->maxLength(50)
+                    ->rule('alpha') // Only letters
+                    ->afterStateUpdated(fn ($state, callable $set, callable $get) =>
+                        $set('full_name', $state . ' ' . $get('last_name'))
+                    ),
+                TextInput::make('last_name')
+                    ->label('Last Name')
                     ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('email')
-                    ->email()
-                    ->maxLength(255)
-                    ->default(null),
-                Forms\Components\TextInput::make('password')
-                    ->password()
-                    ->maxLength(255)
-                    ->default(null),
-                Forms\Components\DatePicker::make('dob'),
-                Forms\Components\TextInput::make('gender')
-                    ->required(),
-                Forms\Components\TextInput::make('address')
-                    ->maxLength(255)
-                    ->default(null),
-                Forms\Components\TextInput::make('phone')
+                    ->reactive()
+                    ->afterStateUpdated(fn ($state, callable $set, callable $get) =>
+                        $set('full_name', $get('first_name') . ' ' . $state)
+                    ),  
+
+                Hidden::make('name')->required(),
+                ])->columns(2),
+                Section::make('User Adress')
+                ->description('Fill in the user details.')
+                ->schema([
+                    TextInput::make('phone')
                     ->tel()
                     ->maxLength(255)
                     ->default(null),
-                Forms\Components\TextInput::make('avatar')
+                    TextInput::make('address')
                     ->maxLength(255)
                     ->default(null),
+                ])->columns(2),
+                Section::make('Dates')
+                ->description('Fill in the user details.')
+                ->schema([
+                DatePicker::make('dob'),
+                Select::make('gender')
+                     ->label('Gender') 
+                     ->options([
+                            'male' => 'Male',
+                            'female' => 'Female',
+                     ])
+                    ->native(false)
+                    ->required(),
+                ])->columns(2),
+                Section::make('Additional Information')
+                ->description('Fill in the user details.')
+                ->schema([ 
+                TextInput::make('username')
+                    ->required()
+                    ->maxLength(255),
+                TextInput::make('email')
+                    ->email()
+                    ->maxLength(255)
+                    ->default(null),
+                TextInput::make('password')
+                    ->password()
+                    ->maxLength(255)
+                    ->default(null),
+                TextInput::make('avatar')
+                    ->maxLength(255)
+                    ->default(null),
+                ])->columns(2),
+                 Section::make('User Role')
+                ->description('Fill in the user details.')
+                ->schema([
+                    Select::make('role')
+                    ->options([
+                        'admin' => 'Admin',
+                        'cashier' => 'Cashier',
+                        'member' => 'Member',
+                    ])
+                    ->required(),
+                ]),
+
             ]);
     }
 

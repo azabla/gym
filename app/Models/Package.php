@@ -24,6 +24,9 @@ class Package extends Model
      */
 
     
+    protected $casts = [   
+    'features' => 'array', // Assuming features is stored as JSON
+      ];
     /**
      * Get the members associated with the package.
      */
@@ -31,4 +34,5 @@ class Package extends Model
     {
         return $this->hasMany(Member::class);
     }
+
 }
