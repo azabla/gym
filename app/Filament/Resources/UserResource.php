@@ -4,19 +4,24 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource\RelationManagers;
+use App\Models\Package;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Forms\FormsComponent;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class UserResource extends Resource
@@ -37,23 +42,29 @@ class UserResource extends Resource
                 TextInput::make('first_name')
                     ->label('First Name')
                     ->required()
-                    ->reactive()
                     ->minLength(2)
                     ->maxLength(50)
-                    ->rule('alpha') // Only letters
-                    ->afterStateUpdated(fn ($state, callable $set, callable $get) =>
-                        $set('full_name', $state . ' ' . $get('last_name'))
+                    ->rule('alpha')
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
+                        $set('name', trim("{$state} {$get('last_name')}"))
                     ),
+
+                    
                 TextInput::make('last_name')
                     ->label('Last Name')
+                    ->minLength(2)
+                    ->maxLength(50)
                     ->required()
-                    ->reactive()
-                    ->afterStateUpdated(fn ($state, callable $set, callable $get) =>
-                        $set('full_name', $get('first_name') . ' ' . $state)
-                    ),  
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
+                        $set('name', trim("{$get('first_name')} {$state}"))
+                    ),
 
-                Hidden::make('name')->required(),
-                ])->columns(2),
+                Hidden::make('name'),
+
+                ])
+                ->columns(2),
                 Section::make('User Adress')
                 ->description('Fill in the user details.')
                 ->schema([
@@ -105,10 +116,231 @@ class UserResource extends Resource
                         'cashier' => 'Cashier',
                         'member' => 'Member',
                     ])
-                    ->required(),
+                    ->required()
+                    ->native(false)
+                    ->live()
                 ]),
 
+                 // --- Membership Fields (Only shown if role == 'member') ---
+            Section::make('Membership Details')
+                ->schema([
+                    Placeholder::make('role_hint')
+                        ->content('Membership details will be managed after creation.')
+                        ->visible(fn (Get $get) => $get('role') !== 'member'),
+
+                    // Only show actual fields if role is 'member'
+                    Forms\Components\Grid::make()
+                        ->schema([
+                            Select::make('member.package_id')
+                                ->label('Package')
+                                ->options(Package::pluck('name', 'id'))
+                                ->searchable()
+                                ->nullable()
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, Get $get) {
+
+                                    $packageId = $get('member.package_id'); // get the selected package ID
+                                    if (!$packageId) {
+                                        return;
+                                    }
+
+                                    $package = Package::find($packageId); // find the package by ID
+                                    if ($package) { // if the package exists, set the duration unit
+                                        $set('member.duration_unit', $package->duration_unit ?? 'month');
+                                    } 
+
+                                    self::calculateMembershipValidity($set, $get);
+                                }),
+
+                            // Add hidden field to store duration_unit
+                            Hidden::make('member.duration_unit'), // Will hold 'day', 'week', 'month', 'year'
+
+                            TextInput::make('member.duration_value')
+                                ->label('Duration (Months)')
+                                ->numeric()
+                                ->minValue(1)
+                                ->default(1)
+                                ->required()
+                                ->live()
+                                ->suffix(fn (Get $get) => match ($get('member.duration_unit')) {
+                                    'day' => 'Day(s)',
+                                    'week' => 'Week(s)',
+                                    'month' => 'Month(s)',
+                                    'year' => 'Year(s)',
+                                    default => 'Unit(s)',
+                                })
+                                ->afterStateUpdated(function (Set $set, Get $get) {
+                                    self::calculateMembershipValidity($set, $get);
+                                }),
+
+                            DatePicker::make('member.starting_date')
+                                ->label('Starting Date')
+                                ->required()
+                                ->default(now())
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, Get $get) {
+                                    self::calculateMembershipValidity($set, $get);
+                                }),
+                            DatePicker::make('member.valid_from')
+                                ->label('Valid From')
+                                ->disabled()
+                                ->dehydrated(),
+
+                            DatePicker::make('member.valid_until')
+                                ->label('Valid Until')
+                                ->disabled()
+                                ->dehydrated(),
+
+                            TextInput::make('member.membership_id')
+                                ->label('Membership ID')
+                                 ->unique(
+                                    table: 'members',           // ✅ Check in `members` table
+                                    column: 'membership_id',    // ✅ The column to check
+                                    ignoreRecord: true,         // ✅ Ignore current record when editing
+                                )
+                                ->default(fn () => 'MEM-' . now()->format('Y') . '-' . random_int(1000, 9999))
+                                ->required(),
+
+                            Select::make('member.status')
+                                ->options([
+                                    'active' => 'Active',
+                                    'inactive' => 'Inactive',
+                                    'suspended' => 'Suspended',
+                                ])
+                                ->default('active')
+                                ->required(),
+                        ])
+                        ->columns(3)
+                        ->visible(fn (Get $get) => $get('role') === 'member'),
+                ])
+                ->hidden(fn (Get $get) => $get('role') !== 'member'),
+
+            // --- Emergency Contact (Only for members) ---
+            Section::make('Emergency Contact')
+                ->schema([
+                    TextInput::make('member.emergency_contact_name')
+                        ->label('Name')
+                        ->maxLength(255),
+                        // ->default(null),
+                        // ->required(fn (Get $get) => $get('role') === 'member'),
+
+                    TextInput::make('member.emergency_contact_phone')
+                        ->label('Phone')
+                        ->tel(),
+                        // ->required(fn (Get $get) => $get('role') === 'member'),
+                ])
+                ->columns(2)
+                ->hidden(fn (Get $get) => $get('role') !== 'member'),
+
+            // --- Notes ---
+            Section::make('Notes')
+                ->schema([
+                    Forms\Components\Textarea::make('member.notes')
+                        ->label('Additional Notes')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ])
+                ->hidden(fn (Get $get) => $get('role') !== 'member'),
+
+
             ]);
+    }
+
+    // Helper: Calculate valid_from and valid_until
+    protected static function calculateMembershipValidity(Set $set, Get $get): void
+    {
+        $startingDate = $get('member.starting_date');
+        $duration = $get('member.duration_value') ?? 1;
+        $durationUnit = $get('member.duration_unit');
+
+        if (! $startingDate) {
+            return;
+        }
+
+        $from = \Carbon\Carbon::parse($startingDate);
+        $until = $from->copy();
+
+        // 🔧 Dynamically add based on duration type
+        match ($durationUnit) {
+            'day' => $until->addDays($duration),
+            'week' => $until->addWeeks($duration),
+            'month' => $until->addMonths($duration),
+            'year' => $until->addYears($duration),
+            default => $until->addMonths($duration),
+        };
+        $set('member.valid_from', $from->toDateString());
+        $set('member.valid_until', $until->toDateString());
+    }
+
+     // ✅ Save member data when user is saved
+    public static function mutateFormDataBeforeCreate(array $data): array
+    {
+         // Combine first and last name into 'name'
+       $data['name'] = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+
+         // 🔐 Fallback if empty
+        if (empty($data['name'])) {
+            $data['name'] = $data['username'] ?? 'Unnamed User';
+        }
+
+        // 🗑️ Remove first_name and last_name from data
+        // so Laravel doesn't try to save them to DB
+        unset($data['first_name']);
+        unset($data['last_name']);
+
+        if ($data['role'] === 'member') {
+            // Ensure member data is present
+            $data['member'] = [
+                // 'user_id' => $data['id'], authomatically set 
+                'package_id' => $data['member']['package_id'],
+                'duration_value' => $data['member']['duration_value'] ?? 1,
+                'starting_date' => $data['member']['starting_date'],
+                'valid_from' => $data['member']['valid_from'],
+                'valid_until' => $data['member']['valid_until'],
+                'membership_id' => $data['member']['membership_id'],
+                'status' => $data['member']['status'] ?? 'active',
+                'emergency_contact_name' => $data['member']['emergency_contact_name'],
+                'emergency_contact_phone' => $data['member']['emergency_contact_phone'],
+                'notes' => $data['member']['notes'] ?? null,
+            ];
+        }
+
+        return $data;
+    }
+
+    // ✅ For editing: fill member data if exists
+    public static function mutateFormDataBeforeFill(array $data): array
+    {
+        $user = static::getRecord();
+
+        if ($user?->member) {
+            $data['member'] = $user->member->toArray();
+        }
+
+        return $data;
+    }
+
+    // ✅ After saving, create or update the member
+    public static function afterCreate(array $data, Model $model): void
+    {
+        if ($data['role'] === 'member') {
+            $model->member()->create($data['member']);
+        }
+    }
+
+    public static function afterEdit(array $data, Model $model): void
+    {
+        if ($data['role'] === 'member') { // If role is still member, update or create membership
+            if ($model->member) { // If member already exists, update it
+                $model->member()->update($data['member']);
+            } else { // If no member exists, create it
+                $model->member()->create($data['member']);
+            }
+        } elseif ($model->member) {
+            // If role changed from member to admin/cashier, delete membership
+            $model->member()->delete();
+        }
     }
 
     public static function table(Table $table): Table
