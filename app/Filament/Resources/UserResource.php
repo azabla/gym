@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Filament\Resources;
+use Illuminate\Support\Facades\Log;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource\RelationManagers;
@@ -13,12 +14,14 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Form;
 use Filament\Forms\FormsComponent;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -39,33 +42,39 @@ class UserResource extends Resource
                 Section::make('User Information')
                 ->description('Fill in the user details.')
                 ->schema([
-                TextInput::make('first_name')
-                    ->label('First Name')
-                    ->required()
-                    ->minLength(2)
-                    ->maxLength(50)
-                    ->rule('alpha')
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
-                        $set('name', trim("{$state} {$get('last_name')}"))
-                    ),
+                // TextInput::make('first_name')
+                //     ->label('First Name')
+                //     ->required()
+                //     ->minLength(2)
+                //     ->maxLength(50)
+                //     ->rule('alpha')
+                //     ->live(onBlur: true)
+                //     ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
+                //         $set('name', trim("{$state} {$get('last_name')}"))
+                //     ),
 
                     
-                TextInput::make('last_name')
+                // TextInput::make('last_name')
+                //     ->label('Last Name')
+                //     ->minLength(2)
+                //     ->maxLength(50)
+                //     ->required()
+                //     ->live(onBlur: true)
+                //     ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
+                //         $set('name', trim("{$get('first_name')} {$state}"))
+                //     ),
+
+                // Hidden::make('name'),
+
+                  TextInput::make('name')
                     ->label('Last Name')
                     ->minLength(2)
-                    ->maxLength(50)
+                    ->maxLength(20)
                     ->required()
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
-                        $set('name', trim("{$get('first_name')} {$state}"))
-                    ),
-
-                Hidden::make('name'),
 
                 ])
                 ->columns(2),
-                Section::make('User Adress')
+                Section::make('User Address')
                 ->description('Fill in the user details.')
                 ->schema([
                     TextInput::make('phone')
@@ -103,9 +112,14 @@ class UserResource extends Resource
                     ->password()
                     ->maxLength(255)
                     ->default(null),
-                TextInput::make('avatar')
-                    ->maxLength(255)
-                    ->default(null),
+                // TextInput::make('avatar')
+                //     ->maxLength(255)
+                //     ->default(null),
+                FileUpload::make('avatar')
+                     ->avatar()
+                     ->directory('avatars')
+                     ->disk('public')
+                     ->visibility('public')
                 ])->columns(2),
                  Section::make('User Role')
                 ->description('Fill in the user details.')
@@ -121,7 +135,10 @@ class UserResource extends Resource
                     ->live()
                 ]),
 
-                 // --- Membership Fields (Only shown if role == 'member') ---
+
+
+
+            // --- Membership Fields (Only shown if role == 'member') ---
             Section::make('Membership Details')
                 ->schema([
                     Placeholder::make('role_hint')
@@ -147,23 +164,25 @@ class UserResource extends Resource
 
                                     $package = Package::find($packageId); // find the package by ID
                                     if ($package) { // if the package exists, set the duration unit
-                                        $set('member.duration_unit', $package->duration_unit ?? 'month');
+                                        $set('duration_unit', $package->duration_unit ?? 'month');
                                     } 
 
                                     self::calculateMembershipValidity($set, $get);
                                 }),
 
                             // Add hidden field to store duration_unit
-                            Hidden::make('member.duration_unit'), // Will hold 'day', 'week', 'month', 'year'
+                            Hidden::make('duration_unit')
+                            ->dehydrated(false), // Will hold 'day', 'week', 'month', 'year'
 
                             TextInput::make('member.duration_value')
                                 ->label('Duration (Months)')
                                 ->numeric()
+                                ->step(1) // forces integer input in browser
                                 ->minValue(1)
                                 ->default(1)
                                 ->required()
                                 ->live()
-                                ->suffix(fn (Get $get) => match ($get('member.duration_unit')) {
+                                ->suffix(fn (Get $get) => match ($get('duration_unit')) {
                                     'day' => 'Day(s)',
                                     'week' => 'Week(s)',
                                     'month' => 'Month(s)',
@@ -213,8 +232,11 @@ class UserResource extends Resource
                         ])
                         ->columns(3)
                         ->visible(fn (Get $get) => $get('role') === 'member'),
-                ])
-                ->hidden(fn (Get $get) => $get('role') !== 'member'),
+                                ]),
+                // ->hidden(fn (Get $get) => $get('role') !== 'member'),
+
+
+
 
             // --- Emergency Contact (Only for members) ---
             Section::make('Emergency Contact')
@@ -247,12 +269,17 @@ class UserResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('member');
+    }
+
     // Helper: Calculate valid_from and valid_until
     protected static function calculateMembershipValidity(Set $set, Get $get): void
     {
         $startingDate = $get('member.starting_date');
-        $duration = $get('member.duration_value') ?? 1;
-        $durationUnit = $get('member.duration_unit');
+        $duration = (int) ($get('member.duration_value') ?? 1);
+        $durationUnit = $get('duration_unit');
 
         if (! $startingDate) {
             return;
@@ -261,7 +288,7 @@ class UserResource extends Resource
         $from = \Carbon\Carbon::parse($startingDate);
         $until = $from->copy();
 
-        // 🔧 Dynamically add based on duration type
+        // Dynamically add based on duration type
         match ($durationUnit) {
             'day' => $until->addDays($duration),
             'week' => $until->addWeeks($duration),
@@ -273,7 +300,7 @@ class UserResource extends Resource
         $set('member.valid_until', $until->toDateString());
     }
 
-     // ✅ Save member data when user is saved
+     // Save member data when user is saved
     public static function mutateFormDataBeforeCreate(array $data): array
     {
          // Combine first and last name into 'name'
@@ -309,21 +336,23 @@ class UserResource extends Resource
         return $data;
     }
 
-    // ✅ For editing: fill member data if exists
-    public static function mutateFormDataBeforeFill(array $data): array
-    {
-        $user = static::getRecord();
+    // // For editing: fill member data if exists
+    // public static function mutateFormDataBeforeFill(array $data): array
+    // {
+    //     $user = static::getRecord();
 
-        if ($user?->member) {
-            $data['member'] = $user->member->toArray();
-        }
+    
+    //     if ($user?->member) {
+    //         $data['member'] = $user->member->toArray();
+    //     }
 
-        return $data;
-    }
+    //     return $data;
+    // }
 
     // ✅ After saving, create or update the member
     public static function afterCreate(array $data, Model $model): void
     {
+        Log::debug('created');
         if ($data['role'] === 'member') {
             $model->member()->create($data['member']);
         }
@@ -342,6 +371,14 @@ class UserResource extends Resource
             $model->member()->delete();
         }
     }
+
+    // public static function mutateFormDataBeforeSave(array $data): array
+    //     {
+    //         $data['name'] = trim("{$data['first_name'] ?? ''} {$data['last_name'] ?? ''}");
+    //         return $data;
+    //     }
+
+ 
 
     public static function table(Table $table): Table
     {
@@ -362,8 +399,10 @@ class UserResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('phone')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('avatar')
-                    ->searchable(),
+                Tables\Columns\ImageColumn::make('avatar')
+                    ->circular()  // Makes it rounded for avatars
+                    ->size(40)
+                    ->defaultImageUrl(url('/images/default-user.png')),   // Fixed size
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -385,6 +424,20 @@ class UserResource extends Resource
                 ]),
             ]);
     }
+
+    // public static function mutateFormDataBeforeFill(array $data): array
+    //     {
+    //         Log::debug('mutateCalled');
+    //         $user = static::getRecord();
+    //         if ($user?->member) {
+    //             Log::debug('Member data:', $user->member->toArray());
+    //             foreach ($user->member->toArray() as $key => $value) {
+    //                 $data["member.{$key}"] = $value;
+    //             }
+    //         }
+    //         Log::debug('Form data:', $data);
+    //         return $data;
+    //     }
 
     public static function getRelations(): array
     {

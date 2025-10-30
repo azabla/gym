@@ -6,11 +6,17 @@ use App\Filament\Resources\MemberResource\Pages;
 use App\Filament\Resources\MemberResource\RelationManagers;
 use App\Models\Member;
 use Filament\Forms;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MemberResource extends Resource
@@ -26,32 +32,33 @@ class MemberResource extends Resource
     
         return $form
             ->schema([
-                Forms\Components\TextInput::make('user_id')
+                TextInput::make('user_id')
                     ->required()
                     ->numeric(),
-                Forms\Components\TextInput::make('package_id')
+                
+                TextInput::make('package_id')
                     ->numeric()
                     ->default(null),
-                Forms\Components\TextInput::make('duration_value')
+                TextInput::make('duration_value')
                     ->required()
                     ->numeric()
                     ->default(1),
-                Forms\Components\DatePicker::make('starting_date'),
-                Forms\Components\DatePicker::make('valid_from'),
-                Forms\Components\DatePicker::make('valid_until'),
-                Forms\Components\TextInput::make('status')
+                DatePicker::make('starting_date'),
+                DatePicker::make('valid_from'),
+                DatePicker::make('valid_until'),
+                TextInput::make('status')
                     ->required(),
-                Forms\Components\TextInput::make('emergency_contact_name')
+                TextInput::make('emergency_contact_name')
                     ->maxLength(255)
                     ->default(null),
-                Forms\Components\TextInput::make('emergency_contact_phone')
+                TextInput::make('emergency_contact_phone')
                     ->tel()
                     ->maxLength(255)
                     ->default(null),
-                Forms\Components\TextInput::make('membership_id')
+                TextInput::make('membership_id')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\Textarea::make('notes')
+                Textarea::make('notes')
                     ->columnSpanFull(),
             ]);
     }
@@ -60,36 +67,43 @@ class MemberResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('user_id')
+                ImageColumn::make('user.avatar')
+                    ->label('User')
+                    ->size(32)
+                    ->circular()
+                    ->defaultImageUrl(url('/images/default-user.png'))
+                    ->extraImgAttributes(['class'=>'cursor-pointer transition-transform hover:scale-110']),
+
+                TextColumn::make('user_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('package_id')
+                TextColumn::make('package_id')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('duration_value')
+                TextColumn::make('duration_value')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('starting_date')
+                TextColumn::make('starting_date')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('valid_from')
+                TextColumn::make('valid_from')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('valid_until')
+                TextColumn::make('valid_until')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('status'),
-                Tables\Columns\TextColumn::make('emergency_contact_name')
+                TextColumn::make('status'),
+                TextColumn::make('emergency_contact_name')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('emergency_contact_phone')
+                TextColumn::make('emergency_contact_phone')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('membership_id')
+                TextColumn::make('membership_id')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),

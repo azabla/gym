@@ -79,4 +79,15 @@ class User extends Authenticatable
             ->map(fn (string $name) => Str::of($name)->substr(0, 1))
             ->implode('');
     }
+
+
+    // first_name and last_name accessor
+
+    public function getFirstNameAttribute(){
+        return Str::of($this->name)->before(' ')->toString() ?: $this->name;
+    }
+    public function getLastNameAttribute(){
+        return Str::of($this->name)->after(' ')->toString();
+        
+    }
 }
