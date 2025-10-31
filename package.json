@@ -16,8 +16,11 @@
         "lightningcss-linux-x64-gnu": "^1.29.1"
     },
     "devDependencies": {
+        "@tailwindcss/forms": "^0.5.10",
+        "@tailwindcss/typography": "^0.5.19",
         "autoprefixer": "^10.4.21",
         "postcss": "^8.5.6",
+        "postcss-nesting": "^13.0.2",
         "tailwindcss": "^3.4.18"
     }
 }
