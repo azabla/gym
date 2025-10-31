@@ -50,6 +50,7 @@ class MemberResource extends Resource
                     ->required(),
                 TextInput::make('emergency_contact_name')
                     ->maxLength(255)
+
                     ->default(null),
                 TextInput::make('emergency_contact_phone')
                     ->tel()
@@ -72,7 +73,8 @@ class MemberResource extends Resource
                     ->size(32)
                     ->circular()
                     ->defaultImageUrl(url('/images/default-user.png'))
-                    ->extraImgAttributes(['class'=>'cursor-pointer transition-transform hover:scale-110']),
+                    ->extraImgAttributes(['class' => 'bg-gray-200 hover:bg-gray-600 overflow-visible']),
+                      
 
                 TextColumn::make('user_id')
                     ->numeric()
@@ -96,6 +98,7 @@ class MemberResource extends Resource
                 TextColumn::make('emergency_contact_name')
                     ->searchable(),
                 TextColumn::make('emergency_contact_phone')
+                ->extraAttributes(['class' => 'bg-gray-200 hover:bg-gray-600 overflow-visible'])
                     ->searchable(),
                 TextColumn::make('membership_id')
                     ->searchable(),
