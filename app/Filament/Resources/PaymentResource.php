@@ -24,7 +24,7 @@ class PaymentResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('user_id')
-                    ->required() 
+                    ->required()  
                     ->numeric(),
                 Forms\Components\TextInput::make('member_id')
                     ->required()
