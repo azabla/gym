@@ -8,6 +8,7 @@ use App\Models\Member;
 use Filament\Actions;
 use Filament\Forms\Components\Builder;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 
 class EditUser extends EditRecord
 {
@@ -15,27 +16,26 @@ class EditUser extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
         {
             $user = static::getRecord();
-            Log::debug('mutateCalled', $user->toArray());
 
-            // $member = $user?->member;
-            // $member = Member::where('user_id', $user->id)->first();
-            
-            // if ($member) {
-            //     Log::debug('member', $member->toArray());
-            //     Log::debug('Member data:', $user->member->toArray());
-            //     foreach ($user->member->toArray() as $key => $value) {
-            //         $data["member.{$key}"] = $value;
-            //     }
-            // }
 
         if ($user?->member) {
                 $data['member'] = $user->member->toArray();
             }
-            Log::debug('Form data:', $data);
             return $data;
         }
 
-   
+   protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        // $user = static::getModel();
+        $record->update($data);
+
+        if ($data['role'] === 'member' && isset($data['member'])){
+            $record->member->update($data['member']);
+        }
+
+
+        return $record;
+    }
 
     protected function getHeaderActions(): array
     {
