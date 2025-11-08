@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade')->onUpdate('cascade'); // Foreign key to users table
+            // $table->foreignId('user_id')->constrained('users')->onDelete('cascade')->onUpdate('cascade'); // Foreign key to users table
             $table->foreignId('member_id')->constrained('members')->onDelete('cascade')->onUpdate('cascade');
             $table->foreignId('package_id')->nullable()->constrained('packages')->onDelete('set null')->onUpdate('cascade'); // Foreign key to packages table, nullable if no package is assigned
             $table->decimal('amount', 10, 2); // Amount paid

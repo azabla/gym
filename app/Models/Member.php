@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class Member extends Model
 {
@@ -16,6 +17,7 @@ class Member extends Model
         'valid_from',
         'valid_until',
         'status',
+        'duration_value',
         'emergency_contact_name',
         'emergency_contact_phone',
         'membership_id',
@@ -33,6 +35,37 @@ class Member extends Model
 
     public function payments()
     {
-        return $this->hasMany(Payment::class, 'user_id', 'user_id');
+        return $this->hasMany(Payment::class);
     }
+
+    // method to get the current status
+public function getStatusAttribute($value)
+{
+    if ($this->valid_until && Carbon::parse($this->valid_until)->isPast()) {
+        return 'expired';
+    }
+    return $value ?: 'active';
+}
+
+// app/Models/Member.php
+
+public function isExpired(): bool
+{
+    return $this->valid_until && Carbon::parse($this->valid_until)->isPast();
+}
+
+public function getExpiryStatus(): string
+{
+    if (!$this->valid_until) {
+        return 'No expiry set';
+    }
+    
+    $expiry = Carbon::parse($this->valid_until);
+    if ($expiry->isPast()) {
+        return 'Expired on ' . $expiry->format('Y-m-d');
+    }
+    
+    return 'Expires on ' . $expiry->format('Y-m-d');
+}
+
 }
