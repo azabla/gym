@@ -26,8 +26,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-use App\Filament\Trait;
+use App\Filament\Traits;
 use App\Filament\Traits\CalcPayDateRanges;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
+
+use Illuminate\Support\Facades\App;
 use Illuminate\Validation\Rule;
 
 class MemberResource extends Resource
@@ -211,6 +216,7 @@ class MemberResource extends Resource
                 ->schema([
 
                     DatePicker::make('starting_date')
+                         ->ethiopic()
                         ->label('Starting Date')
                         ->required()
                         ->default(now())
@@ -228,11 +234,13 @@ class MemberResource extends Resource
                         );
                         }),
                     DatePicker::make('valid_from')
+                    ->ethiopic()
                         ->label('Valid From')
                         ->disabled()
                         ->dehydrated(),
 
                     DatePicker::make('valid_until')
+                    ->ethiopic()
                         ->label('Valid Until')
                         ->disabled()
                         ->dehydrated(),
@@ -278,67 +286,40 @@ class MemberResource extends Resource
                 ->hidden(fn (Get $get) => $get('role') !== 'member'),
 
 
-
-
-                
-                // TextInput::make('user_id')
-                //     ->required()
-                //     ->numeric(),
-                
-                // TextInput::make('package_id')
-                //     ->numeric()
-                //     ->default(null),
-                // TextInput::make('duration_value')
-                //     ->required()
-                //     ->numeric()
-                //     ->default(1),
-                // DatePicker::make('starting_date'),
-                // DatePicker::make('valid_from'),
-                // DatePicker::make('valid_until'),
-                // TextInput::make('status')
-                //     ->required(),
-                // TextInput::make('emergency_contact_name')
-                //     ->maxLength(255)
-
-                //     ->default(null),
-                // TextInput::make('emergency_contact_phone')
-                //     ->tel()
-                //     ->maxLength(255)
-                //     ->default(null),
-                // TextInput::make('membership_id')
-                //     ->required()
-                //     ->maxLength(255),
-                // Textarea::make('notes')
-                //     ->columnSpanFull(),
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            // ->headerActions([
+            //         CreateAction::make()
+            //             ->form([
+            //                 TextInput::make('title')
+            //                     ->required()
+            //                     ->maxLength(255),
+            //                 // ...
+            //             ]),
+            //     ])
             ->columns([
                 ImageColumn::make('user.avatar')
-                    ->label('User')
+                    ->label('Profile')
                     ->size(32)
                     ->circular()
                     // ->tooltip(fn (Model $record) =>{
                         
                     // }),
                     ->defaultImageUrl(url('/images/default-user.png'))
-                    ->extraImgAttributes(['class' => 'bg-gray-200 hover:scale-110 overflow-visible'])
-                    ,
-                   
-                      
-
-                TextColumn::make('user_id')
+                    ->extraImgAttributes(['class' => 'bg-gray-200 hover:scale-110 overflow-visible']),
+                TextColumn::make('user.name')
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('package_id')
+                TextColumn::make('package.name')
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('duration_value')
-                    ->numeric()
-                    ->sortable(),
+                // TextColumn::make('duration_value')
+                //     ->numeric()
+                //     ->sortable(),
                 TextColumn::make('starting_date')
                     ->date()
                     ->sortable(),
@@ -348,9 +329,16 @@ class MemberResource extends Resource
                 TextColumn::make('valid_until')
                     ->date()
                     ->sortable(),
-                TextColumn::make('status'),
-                TextColumn::make('emergency_contact_name')
-                    ->searchable(),
+                TextColumn::make('status')
+                ->badge()
+                ->color(fn (string $state): string => match ($state) {
+                    
+                    'active' => 'success',
+                    'inactive' => 'danger',
+                    'suspended' => 'warning',
+                }),
+                            // TextColumn::make('emergency_contact_name')
+                //     ->searchable(),
                 TextColumn::make('emergency_contact_phone')
                     ->searchable(),
                 TextColumn::make('membership_id')
@@ -363,18 +351,24 @@ class MemberResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                
             ])
+            
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+               Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+        
+           
     }
 
     public static function getRelations(): array
