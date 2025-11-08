@@ -42,7 +42,7 @@ class MemberPaymentSeeder extends Seeder
             Payment::factory()
                 ->count($paymentCount)
                 ->create([
-                    'user_id' => $user->id,
+                    
                     'member_id' => $member->id,
                     'package_id' => $package->id,
                 ]);
