@@ -26,6 +26,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Traits\CalcPayDateRanges;
+use Illuminate\Validation\Rule;
 
 class UserResource extends Resource
 {
@@ -34,6 +36,7 @@ class UserResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
     protected static ?string $navigationLabel = 'Users';
+    use CalcPayDateRanges;
 
     public static function form(Form $form): Form
     {
@@ -42,29 +45,6 @@ class UserResource extends Resource
                 Section::make('User Information')
                 ->description('Fill in the user details.')
                 ->schema([
-                // TextInput::make('first_name')
-                //     ->label('First Name')
-                //     ->required()
-                //     ->minLength(2)
-                //     ->maxLength(50)
-                //     ->rule('alpha')
-                //     ->live(onBlur: true)
-                //     ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
-                //         $set('name', trim("{$state} {$get('last_name')}"))
-                //     ),
-
-                    
-                // TextInput::make('last_name')
-                //     ->label('Last Name')
-                //     ->minLength(2)
-                //     ->maxLength(50)
-                //     ->required()
-                //     ->live(onBlur: true)
-                //     ->afterStateUpdated(fn (Get $get, Set $set, $state) => 
-                //         $set('name', trim("{$get('first_name')} {$state}"))
-                //     ),
-
-                // Hidden::make('name'),
 
                   TextInput::make('name')
                     ->label('Last Name')
@@ -95,6 +75,7 @@ class UserResource extends Resource
                             'male' => 'Male',
                             'female' => 'Female',
                      ])
+                    ->default('male')
                     ->native(false)
                     ->required(),
                 ])->columns(2),
@@ -167,7 +148,15 @@ class UserResource extends Resource
                                         $set('duration_unit', $package->duration_unit ?? 'month');
                                     } 
 
-                                    self::calculateMembershipValidity($set, $get);
+                                    static::calcPayDateRanges(
+                                        set: $set,
+                                        get: $get,
+                                        startingDatePath: 'member.starting_date',
+                                        durationValuePath: 'member.duration_value',
+                                        durationUnitPath: 'duration_unit',
+                                        outputFromPath: 'member.valid_from',
+                                        outputUntilPath: 'member.valid_until'
+                                    );
                                 }),
 
                             // Add hidden field to store duration_unit
@@ -190,7 +179,15 @@ class UserResource extends Resource
                                     default => 'Unit(s)',
                                 })
                                 ->afterStateUpdated(function (Set $set, Get $get) {
-                                    self::calculateMembershipValidity($set, $get);
+                                    static::calcPayDateRanges(
+                                        set: $set,
+                                        get: $get,
+                                        startingDatePath: 'member.starting_date',
+                                        durationValuePath: 'member.duration_value',
+                                        durationUnitPath: 'duration_unit',
+                                        outputFromPath: 'member.valid_from',
+                                        outputUntilPath: 'member.valid_until'
+                                    );
                                 }),
 
                             DatePicker::make('member.starting_date')
@@ -199,7 +196,15 @@ class UserResource extends Resource
                                 ->default(now())
                                 ->live()
                                 ->afterStateUpdated(function (Set $set, Get $get) {
-                                    self::calculateMembershipValidity($set, $get);
+                                     static::calcPayDateRanges(
+                                        set: $set,
+                                        get: $get,
+                                        startingDatePath: 'member.starting_date',
+                                        durationValuePath: 'member.duration_value',
+                                        durationUnitPath: 'duration_unit',
+                                        outputFromPath: 'member.valid_from',
+                                        outputUntilPath: 'member.valid_until'
+                                    );
                                 }),
                             DatePicker::make('member.valid_from')
                                 ->label('Valid From')
@@ -211,13 +216,18 @@ class UserResource extends Resource
                                 ->disabled()
                                 ->dehydrated(),
 
+                            Hidden::make('member.id'),
                             TextInput::make('member.membership_id')
                                 ->label('Membership ID')
-                                 ->unique(
-                                    table: 'members',           // ✅ Check in `members` table
-                                    column: 'membership_id',    // ✅ The column to check
-                                    ignoreRecord: true,         // ✅ Ignore current record when editing
-                                )
+                                ->rule(function(Get $get){
+                                    $memberId = $get('member.id');
+                                    return Rule::unique('members', 'membership_id')->ignore($memberId);  
+                                })
+                                //  ->unique(
+                                //     table: 'members',           // ✅ Check in `members` table
+                                //     column: 'membership_id',    // ✅ The column to check
+                                //     ignoreRecord: true,         // ✅ Ignore current record when editing
+                                // )
                                 ->default(fn () => 'MEM-' . now()->format('Y') . '-' . random_int(1000, 9999))
                                 ->required(),
 
@@ -301,76 +311,76 @@ class UserResource extends Resource
     }
 
      // Save member data when user is saved
-    public static function mutateFormDataBeforeCreate(array $data): array
-    {
-         // Combine first and last name into 'name'
-       $data['name'] = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
-
-         // 🔐 Fallback if empty
-        if (empty($data['name'])) {
-            $data['name'] = $data['username'] ?? 'Unnamed User';
-        }
-
-        // 🗑️ Remove first_name and last_name from data
-        // so Laravel doesn't try to save them to DB
-        unset($data['first_name']);
-        unset($data['last_name']);
-
-        if ($data['role'] === 'member') {
-            // Ensure member data is present
-            $data['member'] = [
-                // 'user_id' => $data['id'], authomatically set 
-                'package_id' => $data['member']['package_id'],
-                'duration_value' => $data['member']['duration_value'] ?? 1,
-                'starting_date' => $data['member']['starting_date'],
-                'valid_from' => $data['member']['valid_from'],
-                'valid_until' => $data['member']['valid_until'],
-                'membership_id' => $data['member']['membership_id'],
-                'status' => $data['member']['status'] ?? 'active',
-                'emergency_contact_name' => $data['member']['emergency_contact_name'],
-                'emergency_contact_phone' => $data['member']['emergency_contact_phone'],
-                'notes' => $data['member']['notes'] ?? null,
-            ];
-        }
-
-        return $data;
-    }
-
-    // // For editing: fill member data if exists
-    // public static function mutateFormDataBeforeFill(array $data): array
+    // public static function mutateFormDataBeforeCreate(array $data): array
     // {
-    //     $user = static::getRecord();
+    //      // Combine first and last name into 'name'
+    //    $data['name'] = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
 
-    
-    //     if ($user?->member) {
-    //         $data['member'] = $user->member->toArray();
+    //      // 🔐 Fallback if empty
+    //     if (empty($data['name'])) {
+    //         $data['name'] = $data['username'] ?? 'Unnamed User';
+    //     }
+
+    //     // 🗑️ Remove first_name and last_name from data
+    //     // so Laravel doesn't try to save them to DB
+    //     unset($data['first_name']);
+    //     unset($data['last_name']);
+
+    //     if ($data['role'] === 'member') {
+    //         // Ensure member data is present
+    //         $data['member'] = [
+    //             // 'user_id' => $data['id'], authomatically set 
+    //             'package_id' => $data['member']['package_id'],
+    //             'duration_value' => $data['member']['duration_value'] ?? 1,
+    //             'starting_date' => $data['member']['starting_date'],
+    //             'valid_from' => $data['member']['valid_from'],
+    //             'valid_until' => $data['member']['valid_until'],
+    //             'membership_id' => $data['member']['membership_id'],
+    //             'status' => $data['member']['status'] ?? 'active',
+    //             'emergency_contact_name' => $data['member']['emergency_contact_name'],
+    //             'emergency_contact_phone' => $data['member']['emergency_contact_phone'],
+    //             'notes' => $data['member']['notes'] ?? null,
+    //         ];
     //     }
 
     //     return $data;
     // }
 
-    // ✅ After saving, create or update the member
-    public static function afterCreate(array $data, Model $model): void
-    {
-        Log::debug('created');
-        if ($data['role'] === 'member') {
-            $model->member()->create($data['member']);
-        }
-    }
+    // // // For editing: fill member data if exists
+    // // public static function mutateFormDataBeforeFill(array $data): array
+    // // {
+    // //     $user = static::getRecord();
 
-    public static function afterEdit(array $data, Model $model): void
-    {
-        if ($data['role'] === 'member') { // If role is still member, update or create membership
-            if ($model->member) { // If member already exists, update it
-                $model->member()->update($data['member']);
-            } else { // If no member exists, create it
-                $model->member()->create($data['member']);
-            }
-        } elseif ($model->member) {
-            // If role changed from member to admin/cashier, delete membership
-            $model->member()->delete();
-        }
-    }
+    
+    // //     if ($user?->member) {
+    // //         $data['member'] = $user->member->toArray();
+    // //     }
+
+    // //     return $data;
+    // // }
+
+    // // ✅ After saving, create or update the member
+    // public static function afterCreate(array $data, Model $model): void
+    // {
+    //     Log::debug('created');
+    //     if ($data['role'] === 'member') {
+    //         $model->member()->create($data['member']);
+    //     }
+    // }
+
+    // public static function afterEdit(array $data, Model $model): void
+    // {
+    //     if ($data['role'] === 'member') { // If role is still member, update or create membership
+    //         if ($model->member) { // If member already exists, update it
+    //             $model->member()->update($data['member']);
+    //         } else { // If no member exists, create it
+    //             $model->member()->create($data['member']);
+    //         }
+    //     } elseif ($model->member) {
+    //         // If role changed from member to admin/cashier, delete membership
+    //         $model->member()->delete();
+    //     }
+    // }
 
     // public static function mutateFormDataBeforeSave(array $data): array
     //     {

@@ -16,13 +16,13 @@ class CreateUser extends CreateRecord
       // ✅ After saving, create or update the member
     protected function handleRecordCreation(array $data): Model
     {
-        Log::debug('data_user', $data);
+        // Log::debug('data_user', $data);
         $user = static::getModel()::create($data);
 
         if ($data['role'] === 'member' && isset($data['member'])){
             $user->member()->create($data['member']);
         }
-
+        
         return $user;
     }
 }
