@@ -25,6 +25,12 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Models\Payment;
+use App\Models\Package;
+use Carbon\Carbon;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Str;
+use App\Filament\Traits\PaymentCalculationsTrait; 
 
 use App\Filament\Traits;
 use App\Filament\Traits\CalcPayDateRanges;
@@ -37,6 +43,7 @@ use Illuminate\Validation\Rule;
 
 class MemberResource extends Resource
 {
+    use PaymentCalculationsTrait; 
     protected static ?string $model = Member::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
@@ -46,18 +53,8 @@ class MemberResource extends Resource
     use CalcPayDateRanges;
     public static function form(Form $form): Form
     {
-    
-        return $form
 
-        
-            ->schema([
-                Section::make('User Information')
-                ->description('Fill in the user details.')
-                ->columns([
-                    'sm' => 2,
-                    'md' => 3,
-                    'xl' => 4,
-                ])
+        return $form
                 ->schema([
                     TextInput::make('user.name')
                         ->label('Full Name')
@@ -84,7 +81,7 @@ class MemberResource extends Resource
                         ->native(false)
                         ->required(),
                     DatePicker::make('dob'),
-                         ]),
+                         ]);
 
                 Section::make('Additional Information')
                 ->description('Fill in the user details.')
@@ -120,7 +117,7 @@ class MemberResource extends Resource
                          'sm' => 1,
                          'md' => 2,
                      ])
-                ]),
+                ])
                 
                 // the member specific data
 
@@ -310,12 +307,25 @@ class MemberResource extends Resource
                         
                     // }),
                     ->defaultImageUrl(url('/images/default-user.png'))
-                    ->extraImgAttributes(['class' => 'bg-gray-200 hover:scale-110 overflow-visible']),
+                    ->extraImgAttributes(['class' => 'bg-gray-200 hover:scale-110 overflow-visible'])
+                    ,
+                   
+                      
+
+
                 TextColumn::make('user.name')
-                    ->numeric()
+                    ->label('Name')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('package.name')
+                    ->label('Package')
+                    ->sortable(),
+                TextColumn::make('duration_value')
+                    ->label('Duration')
                     ->numeric()
+                    ->formatStateUsing(fn($state, $record) => 
+                    $state . ' ' . ($record->package?->duration_unit ?: 'unit')
+                )
                     ->sortable(),
                 // TextColumn::make('duration_value')
                 //     ->numeric()
@@ -340,6 +350,7 @@ class MemberResource extends Resource
                             // TextColumn::make('emergency_contact_name')
                 //     ->searchable(),
                 TextColumn::make('emergency_contact_phone')
+                    
                     ->searchable(),
                 TextColumn::make('membership_id')
                     ->searchable(),
@@ -358,9 +369,26 @@ class MemberResource extends Resource
                 //
             ])
             ->actions([
-               Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make()
-                
+                Tables\Actions\EditAction::make(),
+                // Add the automatic Pay action
+                Tables\Actions\Action::make('auto_pay')
+                    ->label('Pay')
+                    ->icon('heroicon-o-credit-card')
+                    ->color('success')
+                    ->action(function (Member $record) {
+                        self::processAutoPayment($record);
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirm Auto Payment')
+                    ->modalDescription(
+                        fn(Member $record) =>
+                        "Create automatic payment for {$record->user->name} using their profile settings?"
+                    )
+                    ->modalSubmitActionLabel('Confirm Payment')
+                    ->visible(
+                        fn(Member $record): bool =>
+                        $record->package_id && $record->duration_value > 0
+                    ),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -386,4 +414,46 @@ class MemberResource extends Resource
             'edit' => Pages\EditMember::route('/{record}/edit'),
         ];
     }
+
+    protected static function processAutoPayment(Member $member): void
+    {
+        // Get the package
+        $package = $member->package;
+        if (!$package) {
+            throw new \Exception("Member doesn't have a valid package assigned");
+        }
+
+        $validFrom = self::determineValidFromDateForMember($member);
+        $validUntil = self::calculateValidUntilForMember($member, $validFrom);
+        $amount = self::calculatePaymentAmountForMember($member);
+
+        // Create payment
+        $payment = Payment::create([
+            'member_id' => $member->id,
+            'package_id' => $package->id,
+            'amount' => $amount,
+            'payment_method' => 'cash', 
+            'payment_date' => now(),
+            'valid_from' => $validFrom,
+            'valid_until' => $validUntil, 
+            'transaction_id' => 'AUTO-' . strtoupper(Str::random(8)),
+            'status' => 'completed',
+            'duration_value' =>  $member->duration_value ?: 1,
+            'notes' => 'Auto-generated payment from member profile',
+        ]);
+
+        // Update member's valid_until to the new expiry
+        $member->update([
+            'valid_until' => $validUntil,
+            'status' => 'active',
+        ]);
+
+        // Notify user
+        Notification::make()
+            ->title('Payment Processed Successfully')
+            ->body("payment of {$amount} Birr is Done for {$member->user->name}. New expiry: {$validUntil->format('Y-m-d')}")
+            ->success()
+            ->send();
+    }
+
 }

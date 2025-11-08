@@ -20,6 +20,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Traits\PaymentCalculationsTrait;
 
 class PackageResource extends Resource
 {
@@ -27,6 +28,7 @@ class PackageResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
+    use PaymentCalculationsTrait;
     public static function form(Form $form): Form
     {
         return $form
