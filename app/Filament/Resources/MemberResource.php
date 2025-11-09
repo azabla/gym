@@ -25,7 +25,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Models\Payment;
-use App\Models\Package;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
@@ -39,6 +38,11 @@ use Filament\Actions\EditAction;
 
 use Illuminate\Support\Facades\App;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Collection;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
+
 
 class MemberResource extends Resource
 {
@@ -69,7 +73,7 @@ class MemberResource extends Resource
                     TextInput::make('user.address')
                     ->placeholder('Kality O9')
                     ->maxLength(255)
-                    ->default(null),
+                    ->default(state: null),
                     Select::make('user.gender')
                          ->label('Gender') 
                          ->options([
@@ -80,7 +84,7 @@ class MemberResource extends Resource
                         ->native(false)
                         ->required(),
                     DatePicker::make('dob'),
-                        //  ]);
+                         
 
                 Section::make('Additional Information')
                 ->description('Fill in the user details.')
@@ -365,7 +369,77 @@ class MemberResource extends Resource
             ])
             
             ->filters([
-                //
+               SelectFilter::make('package')
+               ->label('Package')
+                ->multiple()
+                ->preload()
+                ->placeholder('All Packages')
+               ->relationship('package', 'name')->label('Package'),
+               SelectFilter::make('status')
+                ->options([
+                     'active' => 'Active',
+                     'inactive' => 'Inactive',
+                     'suspended' => 'Suspended',
+                ])->label('Status'),
+                TernaryFilter::make('is_expired')
+                    ->label('Expired')
+                    ->placeholder('All')
+                    ->indicator('Expired Status')
+                    ->trueLabel('Yes')
+                    ->falseLabel('No')
+                    ->queries(
+                        true: fn (Builder $query) => $query->where('valid_until', '<', now()),
+                        false: fn (Builder $query) => $query->where('valid_until', '>=', now())->orWhereNull('valid_until'),
+                    ),
+                    Filter::make('valid_until')
+                    ->label('Expiry Date Range')                    
+                    ->form([
+                        DatePicker::make('valid_from')
+                        ->label('Expire From')
+                        ->native(false)
+                        ->placeholder('Start Date'),
+                        DatePicker::make('valid_until')
+                        ->label('Expire Until')
+                        ->native(false)
+                        ->placeholder('End Date'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['valid_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('valid_until', '>=', $date),
+                            )
+                            ->when(
+                                $data['valid_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('valid_until', '<=', $date),
+                            );
+                    }),
+                    Filter::make('starting_date')
+                    ->label('Starting Date Range')
+                    ->form([
+                        DatePicker::make('starting_from')
+                        ->label('Starting From')
+                        ->native(false)
+                        ->placeholder('Start Date'),
+                        DatePicker::make('starting_until')
+                        ->label('Starting Until')
+                        ->native(false)
+                        ->placeholder('End Date'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['starting_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('starting_date', '>=', $date),
+                            )
+                            ->when(
+                                $data['starting_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('starting_date', '<=', $date),
+                            );
+                    }),
+
+
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -392,6 +466,37 @@ class MemberResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('bulk_pay')
+                    ->label('Bulk Pay Selected Members')
+                    ->icon('heroicon-o-credit-card')
+                    ->color('success')
+                    ->action(function (Collection $records) {
+                        self::processBulkAutoPayments($records);
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirm Bulk Payments')
+                    ->modalDescription(function (Collection $records) {
+                        $count = $records->count();
+                        $validCount = $records->filter(function ($member) {
+                            return $member->package_id && $member->duration_value > 0;
+                        })->count();
+                        
+                        $invalidCount = $count - $validCount;
+                        
+                        $description = "Process automatic payments for {$count} members.\n";
+                        
+                        if ($validCount > 0) {
+                            $description .= "✅ {$validCount} members have valid packages and duration values.\n";
+                        }
+                        
+                        if ($invalidCount > 0) {
+                            $description .= "⚠️ {$invalidCount} members are missing package or duration settings and will be skipped.\n";
+                        }
+                        
+                        return $description;
+                    })
+                    ->modalSubmitActionLabel('Process Bulk Payments')
+                    ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
         
@@ -454,5 +559,98 @@ class MemberResource extends Resource
             ->success()
             ->send();
     }
+
+
+    protected static function processBulkAutoPayments(Collection $members): void
+{
+    $successCount = 0;
+    $errorCount = 0;
+    $errorMessages = [];
+    $skippedMembers = [];
+
+    foreach ($members as $member) {
+        try {
+            // Skip members without required data
+            if (!$member->package_id || !$member->duration_value || $member->duration_value <= 0) {
+                $skippedMembers[] = $member->user->name;
+                continue;
+            }
+
+            // Get the package
+            $package = $member->package;
+            if (!$package) {
+                $errorMessages[] = "{$member->user->name}: No valid package assigned";
+                $errorCount++;
+                continue;
+            }
+
+            // Use trait methods for calculations
+            $validFrom = self::determineValidFromDateForMember($member);
+            $validUntil = self::calculateValidUntilForMember($member, $validFrom);
+            $amount = self::calculatePaymentAmountForMember($member);
+
+            // Create payment
+            Payment::create([
+                'member_id' => $member->id,
+                'package_id' => $package->id,
+                'amount' => $amount,
+                'payment_method' => 'cash',
+                'payment_date' => now(),
+                'valid_from' => $validFrom,
+                'valid_until' => $validUntil,
+                'transaction_id' => 'AUTO-' . strtoupper(Str::random(8)),
+                'status' => 'completed',
+                'duration_value' => $member->duration_value ?: 1,
+                'notes' => 'Auto-generated bulk payment from member profile',
+            ]);
+
+            // Update member's valid_until to the new expiry
+            $member->update([
+                'valid_until' => $validUntil,
+                'status' => 'active',
+            ]);
+
+            $successCount++;
+
+        } catch (\Exception $e) {
+            $errorMessages[] = "{$member->user->name}: {$e->getMessage()}";
+            $errorCount++;
+        }
+    }
+
+    // Prepare notification message
+    $message = "Bulk payment processing completed:\n";
+    $message .= "✅ Successful: {$successCount}\n";
+    
+    if ($skippedMembers) {
+        $message .= "⏭️ Skipped (missing data): " . count($skippedMembers) . "\n";
+    }
+    
+    if ($errorCount > 0) {
+        $message .= "❌ Failed: {$errorCount}\n";
+        $message .= "Error details:\n" . implode("\n", $errorMessages);
+    }
+
+    // Send notification
+    if ($successCount > 0) {
+        Notification::make()
+            ->title('Bulk Payments Completed Successfully')
+            ->body($message)
+            ->success()
+            ->send();
+    } elseif ($errorCount > 0) {
+        Notification::make()
+            ->title('Bulk Payments Failed')
+            ->body($message)
+            ->danger()
+            ->send();
+    } else {
+        Notification::make()
+            ->title('No Valid Members for Bulk Payment')
+            ->body('All selected members were skipped due to missing package or duration settings.')
+            ->warning()
+            ->send();
+    }
+}
 
 }

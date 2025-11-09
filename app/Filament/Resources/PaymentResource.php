@@ -19,6 +19,9 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Fieldset;
 use App\Filament\Traits\PaymentCalculationsTrait;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 
 
 class PaymentResource extends Resource
@@ -252,7 +255,60 @@ class PaymentResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Filter::make('payment_date_range')
+                    ->form([
+                        Forms\Components\DatePicker::make('payment_date_from')
+                            ->label('Payment Date From')
+                            ->native(false),
+                        Forms\Components\DatePicker::make('payment_date_to')
+                            ->label('Payment Date To')
+                            ->native(false),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!empty($data['payment_date_from'])) {
+                            $query->whereDate('payment_date', '>=', $data['payment_date_from']);
+                        }
+                        if (!empty($data['payment_date_to'])) {
+                            $query->whereDate('payment_date', '<=', $data['payment_date_to']);
+                        }
+                        return $query;
+                    }),
+                SelectFilter::make('user')
+                    ->label('Member')
+                    ->relationship(
+                        name: 'member',
+                        titleAttribute: 'membership_id',
+                        modifyQueryUsing: fn (Builder $query) => $query->with('user')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn (Member $record) => "{$record->user->name} ({$record->membership_id})")
+                    ->searchable(['member.user.name', 'member.membership_id'])
+                    ->multiple()
+                    ->preload()
+                    ->placeholder('All Members'),
+                SelectFilter::make('package_id')
+                    ->label('Package')
+                    ->multiple()
+                    ->relationship('package', 'name'),
+                    Filter::make('amount_range')
+                    ->form([
+                        Forms\Components\TextInput::make('amount_min')
+                            ->label('Minimum Amount')
+                            ->numeric(),
+                        Forms\Components\TextInput::make('amount_max')
+                            ->label('Maximum Amount')
+                            ->numeric(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (isset($data['amount_min'])) {
+                            $query->where('amount', '>=', $data['amount_min']);
+                        }
+                        if (isset($data['amount_max'])) {
+                            $query->where('amount', '<=', $data['amount_max']);
+                        }
+                        return $query;
+                    }),
+
+                    
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
