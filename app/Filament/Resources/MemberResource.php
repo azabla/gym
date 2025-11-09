@@ -5,7 +5,6 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\MemberResource\Pages;
 use App\Filament\Resources\MemberResource\RelationManagers;
 use App\Models\Member;
-use App\Models\Package;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -81,7 +80,7 @@ class MemberResource extends Resource
                         ->native(false)
                         ->required(),
                     DatePicker::make('dob'),
-                         ]);
+                        //  ]);
 
                 Section::make('Additional Information')
                 ->description('Fill in the user details.')
@@ -117,7 +116,7 @@ class MemberResource extends Resource
                          'sm' => 1,
                          'md' => 2,
                      ])
-                ])
+                     ]),
                 
                 // the member specific data
 
@@ -283,7 +282,7 @@ class MemberResource extends Resource
                 ->hidden(fn (Get $get) => $get('role') !== 'member'),
 
 
-            ]);
+                ]);
     }
 
     public static function table(Table $table): Table
@@ -310,7 +309,6 @@ class MemberResource extends Resource
                     ->extraImgAttributes(['class' => 'bg-gray-200 hover:scale-110 overflow-visible'])
                     ,
                    
-                      
 
 
                 TextColumn::make('user.name')
@@ -346,6 +344,7 @@ class MemberResource extends Resource
                     'active' => 'success',
                     'inactive' => 'danger',
                     'suspended' => 'warning',
+                    default => 'primary'
                 }),
                             // TextColumn::make('emergency_contact_name')
                 //     ->searchable(),
