@@ -5,7 +5,6 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\MemberResource\Pages;
 use App\Filament\Resources\MemberResource\RelationManagers;
 use App\Models\Member;
-use App\Models\Package;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -31,8 +30,13 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
 use App\Filament\Traits\PaymentCalculationsTrait; 
 
-use App\Filament\Trait;
+use App\Filament\Traits;
 use App\Filament\Traits\CalcPayDateRanges;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
+
+use Illuminate\Support\Facades\App;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Collection;
 use Filament\Tables\Filters\Filter;
@@ -116,7 +120,7 @@ class MemberResource extends Resource
                          'sm' => 1,
                          'md' => 2,
                      ])
-                ]),
+                     ]),
                 
                 // the member specific data
 
@@ -212,6 +216,7 @@ class MemberResource extends Resource
                 ->schema([
 
                     DatePicker::make('starting_date')
+                         ->ethiopic()
                         ->label('Starting Date')
                         ->required()
                         ->default(now())
@@ -229,11 +234,13 @@ class MemberResource extends Resource
                         );
                         }),
                     DatePicker::make('valid_from')
+                    ->ethiopic()
                         ->label('Valid From')
                         ->disabled()
                         ->dehydrated(),
 
                     DatePicker::make('valid_until')
+                    ->ethiopic()
                         ->label('Valid Until')
                         ->disabled()
                         ->dehydrated(),
@@ -279,47 +286,24 @@ class MemberResource extends Resource
                 ->hidden(fn (Get $get) => $get('role') !== 'member'),
 
 
-
-
-                
-                // TextInput::make('user_id')
-                //     ->required()
-                //     ->numeric(),
-                
-                // TextInput::make('package_id')
-                //     ->numeric()
-                //     ->default(null),
-                // TextInput::make('duration_value')
-                //     ->required()
-                //     ->numeric()
-                //     ->default(1),
-                // DatePicker::make('starting_date'),
-                // DatePicker::make('valid_from'),
-                // DatePicker::make('valid_until'),
-                // TextInput::make('status')
-                //     ->required(),
-                // TextInput::make('emergency_contact_name')
-                //     ->maxLength(255)
-
-                //     ->default(null),
-                // TextInput::make('emergency_contact_phone')
-                //     ->tel()
-                //     ->maxLength(255)
-                //     ->default(null),
-                // TextInput::make('membership_id')
-                //     ->required()
-                //     ->maxLength(255),
-                // Textarea::make('notes')
-                //     ->columnSpanFull(),
-            ]);
+                ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            // ->headerActions([
+            //         CreateAction::make()
+            //             ->form([
+            //                 TextInput::make('title')
+            //                     ->required()
+            //                     ->maxLength(255),
+            //                 // ...
+            //             ]),
+            //     ])
             ->columns([
                 ImageColumn::make('user.avatar')
-                    ->label('User')
+                    ->label('Profile')
                     ->size(32)
                     ->circular()
                     // ->tooltip(fn (Model $record) =>{
@@ -329,7 +313,6 @@ class MemberResource extends Resource
                     ->extraImgAttributes(['class' => 'bg-gray-200 hover:scale-110 overflow-visible'])
                     ,
                    
-                      
 
 
                 TextColumn::make('user.name')
@@ -346,6 +329,9 @@ class MemberResource extends Resource
                     $state . ' ' . ($record->package?->duration_unit ?: 'unit')
                 )
                     ->sortable(),
+                // TextColumn::make('duration_value')
+                //     ->numeric()
+                //     ->sortable(),
                 TextColumn::make('starting_date')
                     ->date()
                     ->sortable(),
@@ -353,22 +339,19 @@ class MemberResource extends Resource
                     ->date()
                     ->sortable(),
                 TextColumn::make('valid_until')
-                ->label('Expiry Date')    
-                ->date()
-                    ->sortable()
-                    ->color(fn($state): string =>
-                    $state && Carbon::parse($state)->isPast() ? 'danger' : 'success'
-                ),
+                    ->date()
+                    ->sortable(),
                 TextColumn::make('status')
                 ->badge()
-                ->color(fn(string $state): string => match ($state) {
+                ->color(fn (string $state): string => match ($state) {
+                    
                     'active' => 'success',
                     'inactive' => 'danger',
-                    'expired' => 'gray',
-                    default => 'primary',
+                    'suspended' => 'warning',
+                    default => 'primary'
                 }),
-                TextColumn::make('emergency_contact_name')
-                    ->searchable(),
+                            // TextColumn::make('emergency_contact_name')
+                //     ->searchable(),
                 TextColumn::make('emergency_contact_phone')
                     
                     ->searchable(),
@@ -382,7 +365,9 @@ class MemberResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                
             ])
+            
             ->filters([
                SelectFilter::make('package')
                ->label('Package')
@@ -514,6 +499,8 @@ class MemberResource extends Resource
                     ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
+        
+           
     }
 
     public static function getRelations(): array

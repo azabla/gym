@@ -11,14 +11,6 @@ use Illuminate\Database\Eloquent\Model;
 class CreateMember extends CreateRecord
 {
     protected static string $resource = MemberResource::class;
-
-    // protected function mutateFormDataBeforeCreate(array $data): array
-
-    // {
-    //     $data['user.role'] = "Member";
-
-    //     return $data;
-    // }
      
     protected function handleRecordCreation(array $data): Model
     {

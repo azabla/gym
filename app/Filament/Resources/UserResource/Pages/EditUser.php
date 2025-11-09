@@ -23,7 +23,6 @@ class EditUser extends EditRecord
             }
             return $data;
         }
-
    protected function handleRecordUpdate(Model $record, array $data): Model
     {
         // $user = static::getModel();
