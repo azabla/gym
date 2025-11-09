@@ -28,6 +28,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Traits\CalcPayDateRanges;
 use Illuminate\Validation\Rule;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 
 class UserResource extends Resource
 {
@@ -423,7 +426,29 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('role')
+                ->options([
+                    'admin' => 'Admin',
+                    'cashier' => 'Cashier',
+                    'member' => 'Member',
+                ])
+                ->placeholder('All Roles'),
+                SelectFilter::make('gender')
+                ->options([
+                    'male' => 'Male',
+                    'female' => 'Female',
+                ])
+                ->placeholder('All Genders'),
+                SelectFilter::make('address')
+                ->options(function () {
+                    return User::query()
+                        ->distinct()
+                        ->pluck('address', 'address')
+                        ->filter(fn ($value) => !is_null($value) && $value !== '')
+                        ->toArray();
+                })
+                ->searchable(),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
