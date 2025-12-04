@@ -43,6 +43,10 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Group;
+
+
 use App\Models\Package;
 
 
@@ -61,238 +65,280 @@ class MemberResource extends Resource
 
         return $form
             ->schema([
-                TextInput::make('user.name')
-                    ->label('Full Name')
-                    ->placeholder('Abel Asrat')
-                    ->minLength(2)
-                    ->maxLength(20)
-                    ->required(),
-                TextInput::make('user.phone')
-                    ->tel()
-                    ->placeholder('09########')
-                    ->maxLength(255)
-                    ->default(null),
-                TextInput::make('user.address')
-                    ->placeholder('Kality O9')
-                    ->maxLength(255)
-                    ->default(state: null),
-                Select::make('user.gender')
-                    ->label('Gender')
-                    ->options([
-                        'male' => 'Male',
-                        'female' => 'Female',
-                    ])
-                    ->default('male')
-                    ->native(false)
-                    ->required(),
-                DatePicker::make('dob')
-                    ->native(false)
-                    ->ethiopic()
-                    ->label('Date of Birth')
-                    ->placeholder('Select Date of Birth')
-                    ->maxDate(now()->subYears(10))
-                    ->default(null),
-
-
-                Section::make('Additional Information')
-                    ->description('Fill in the user details.')
-                    ->columns([
-                        'sm' => 1,
-                        'md' => 3,
-                        'xl' => 4,
-                    ])
+                Grid::make(3)
                     ->schema([
-                        Hidden::make('user.id'),
-                        TextInput::make('user.username')
-                            ->required()
-                            ->rule(function (Get $get) {
-                                $userId = $get('user.id');
-                                return Rule::unique('users', 'username')->ignore($userId);
-                            })
-                            ->maxLength(255),
-                        TextInput::make('user.email')
-                            ->email()
-                            ->maxLength(255)
-                            ->default(null),
-                        TextInput::make('user.password')
-                            ->password()
-                            ->maxLength(255)
-                            ->default(null),
-                        FileUpload::make('user.avatar')
-                            ->avatar()
-                            ->directory('avatars')
-                            ->disk('public')
-                            ->visibility('public')
-                            ->columnSpan(2)
-                            ->columnStart([
-                                'sm' => 1,
-                                'md' => 2,
-                            ])
+                        // --- LEFT COLUMN: Personal & Contact Info (Takes 2/3 width) ---
+                        Group::make()
+                            ->columnSpan(['lg' => 2])
+                            ->schema([
+                                Section::make('Personal Information ')
+                                    ->description('Basic personal details of the member.')
+                                    ->collapsed(false)
+                                    ->schema([
+                                        Grid::make(2)->schema([
+                                            TextInput::make('user.name')
+                                                ->label('Full Name')
+                                                ->placeholder('Abel Asrat')
+                                                ->minLength(2)
+                                                ->maxLength(30)
+                                                ->prefixIcon('heroicon-o-user')
+                                                ->required(),
+                                            TextInput::make('user.phone')
+                                                ->tel()
+                                                ->placeholder('09********')
+                                                ->maxLength(255)
+                                                ->prefixIcon('heroicon-o-phone')
+                                                ->default(null),
+                                            TextInput::make('user.address')
+                                                ->placeholder('Kality O9')
+                                                ->maxLength(255)
+                                                ->prefixIcon('heroicon-o-map-pin')
+                                                ->default(state: null),
+                                            Select::make('user.gender')
+                                                ->label('Gender')
+                                                ->options([
+                                                    'male' => 'Male',
+                                                    'female' => 'Female',
+                                                ])
+                                                ->default('male')
+                                                ->native(false)
+                                                ->prefixIcon('heroicon-o-users')
+                                                ->required(),
+                                            DatePicker::make('dob')
+                                                ->native(false)
+                                                ->ethiopic()
+                                                ->label('Date of Birth')
+                                                ->placeholder('Select Date of Birth')
+                                                ->maxDate(now()->subYears(10))
+                                                ->prefixIcon('heroicon-o-calendar')
+                                                ->default(null),
+                                        ]),
+                                    ]),
+                                Section::make('Account Security 🔐')
+                                    ->description('Manage login credentials.')
+                                    ->collapsed(false) // Collapsed by default to save space
+                                    ->schema([
+                                        Grid::make(3)->schema([
+                                            Hidden::make('user.id'),
+                                            TextInput::make('user.username')
+                                                ->required()
+                                                ->rule(function (Get $get) {
+                                                    $userId = $get('user.id');
+                                                    return Rule::unique('users', 'username')->ignore($userId);
+                                                })
+                                                ->maxLength(255)
+                                                ->prefixIcon('heroicon-o-at-symbol'),
+                                            TextInput::make('user.email')
+                                                ->email()
+                                                ->maxLength(255)
+                                                ->prefixIcon('heroicon-o-envelope')
+                                                ->default(null),
+                                            TextInput::make('user.password')
+                                                ->password()
+                                                ->maxLength(255)
+                                                ->prefixIcon('heroicon-o-lock-closed')
+                                                ->default(null),
+                                        ]),
+                                    ]),
+                                // --- Emergency Contact (Only for members) ---
+                                Section::make('Emergency Contact 🆘')
+                                    ->description('Contact details in case of emergencies.')
+                                    ->collapsed(false)
+                                    ->schema([
+                                        Grid::make(2)->schema([
+                                            TextInput::make('emergency_contact_name')
+                                                ->label('Name')
+                                                ->prefixIcon('heroicon-o-user')
+                                                ->maxLength(255),
+                                            // ->default(null),
+                                            // ->required(fn (Get $get) => $get('role') === 'member'),
+
+                                            TextInput::make('emergency_contact_phone')
+                                                ->label('Phone')
+                                                ->prefixIcon('heroicon-o-phone')
+                                                ->tel(),
+                                            // ->required(fn (Get $get) => $get('role') === 'member'),
+                                        ])
+                                            ->columns(2),
+                                        // ->hidden(fn(Get $get) => $get('role') !== 'member'),
+                                    ]),
+
+                                // --- Notes ---
+                                Section::make('Notes 📝')
+                                    ->description('Additional notes about the member')
+                                    ->collapsed(false)
+                                    ->schema([
+                                        Forms\Components\Textarea::make('notes')
+                                            ->label('Additional Notes')
+                                            ->rows(3),
+                                    ]),
+                                // ->hidden(fn(Get $get) => $get('role') !== 'member'),
+                            ]),
+                        Group::make()
+                            ->columnSpan(['lg' => 1])
+                            ->schema([
+                                Section::make('Profile Image 📸')
+                                    ->collapsed(false)
+                                    ->schema([
+                                        FileUpload::make('user.avatar')
+                                            ->avatar()
+                                            ->label('Avatar')
+                                            ->hiddenLabel()
+                                            ->directory('avatars')
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->alignCenter(),
+
+                                    ]),
+
+                                // the member specific data
+
+                                Section::make('Membership Details 💳')
+                                    ->collapsed(false)
+                                    ->schema([
+                                        TextInput::make('membership_id')
+                                            ->label('Membership ID')
+                                            ->unique(
+                                                table: 'members',           // ✅ Check in `members` table
+                                                column: 'membership_id',    // ✅ The column to check
+                                                ignoreRecord: true,         // ✅ Ignore current record when editing
+                                            )
+                                            ->default(fn() => 'MEM-' . now()->format('Y') . '-' . random_int(1000, 9999))
+                                            ->prefixIcon('heroicon-o-identification')
+                                            ->required(),
+
+                                        Select::make('package_id')
+                                            ->label('Package')
+                                            ->options(Package::pluck('name', 'id'))
+                                            ->searchable()
+                                            ->nullable()
+                                            ->required()
+                                            ->prefixIcon('heroicon-o-gift')
+                                            ->live()
+                                            ->afterStateUpdated(function (Set $set, Get $get) {
+
+                                                $packageId = $get('package_id'); // get the selected package ID
+                                                if (!$packageId) {
+                                                    return;
+                                                }
+
+                                                $package = Package::find($packageId); // find the package by ID
+                                                if ($package) { // if the package exists, set the duration unit
+                                                    $set('duration_unit', $package->duration_unit ?? 'month');
+                                                }
+
+                                                // self::calculateMembershipValidity($set, $get);
+                                                static::calcPayDateRanges(
+                                                    set: $set,
+                                                    get: $get,
+                                                    startingDatePath: 'starting_date',
+                                                    durationValuePath: 'duration_value',
+                                                    durationUnitPath: 'duration_unit',
+                                                    outputFromPath: 'valid_from',
+                                                    outputUntilPath: 'valid_until'
+                                                );
+                                            }),
+
+                                        // Add hidden field to store duration_unit
+                                        Hidden::make('duration_unit')
+                                            ->dehydrated(false), // Will hold 'day', 'week', 'month', 'year'
+
+                                        TextInput::make('duration_value')
+                                            ->label('Durations')
+                                            ->numeric()
+                                            ->step(1) // forces integer input in browser
+                                            ->minValue(1)
+                                            ->default(1)
+                                            ->required()
+                                            ->live()
+                                            ->prefixIcon('heroicon-o-clock')
+                                            ->suffix(fn(Get $get) => match ($get('duration_unit')) {
+                                                'day' => 'Day(s)',
+                                                'week' => 'Week(s)',
+                                                'month' => 'Month(s)',
+                                                'year' => 'Year(s)',
+                                                default => 'Month(s)',
+                                            })
+                                            ->afterStateUpdated(function (Set $set, Get $get) {
+                                                // self::calculateMembershipValidity($set, $get);
+                                                static::calcPayDateRanges(
+                                                    set: $set,
+                                                    get: $get,
+                                                    startingDatePath: 'starting_date',
+                                                    durationValuePath: 'duration_value',
+                                                    durationUnitPath: 'duration_unit',
+                                                    outputFromPath: 'valid_from',
+                                                    outputUntilPath: 'valid_until'
+                                                );
+                                            }),
+                                    ]),
+
+                                Section::make('Validity Period 📅')
+                                    ->collapsed(false)
+                                    ->schema([
+
+                                        DatePicker::make('starting_date')
+                                            ->ethiopic()
+                                            ->label('Starting Date')
+                                            ->required()
+                                            ->default(now())
+                                            ->live()
+                                            ->prefixIcon('heroicon-o-calendar')
+                                            ->native(false)
+                                            ->afterStateUpdated(function (Set $set, Get $get) {
+                                                // self::calculateMembershipValidity($set, $get);
+                                                static::calcPayDateRanges(
+                                                    set: $set,
+                                                    get: $get,
+                                                    startingDatePath: 'starting_date',
+                                                    durationValuePath: 'duration_value',
+                                                    durationUnitPath: 'duration_unit',
+                                                    outputFromPath: 'valid_from',
+                                                    outputUntilPath: 'valid_until'
+                                                );
+                                            }),
+                                        DatePicker::make('valid_from')
+                                            ->ethiopic()
+                                            ->label('Valid From')
+                                            ->disabled()
+                                            ->prefixIcon('heroicon-o-calendar-days')
+                                            ->dehydrated(),
+
+                                        DatePicker::make('valid_until')
+                                            ->ethiopic()
+                                            ->label('Valid Until')
+                                            ->disabled()
+                                            ->prefixIcon('heroicon-o-x-mark')
+                                            ->dehydrated()
+                                            ->extraAttributes(['class' => 'font-bold text-primary-600']),
+
+
+
+                                        Select::make('status')
+                                            ->options([
+                                                'active' => 'Active',
+                                                'inactive' => 'Inactive',
+                                                'suspended' => 'Suspended',
+                                            ])
+                                            ->native(false)
+                                            ->prefixIcon(function (string $state): string {
+                                                if ($state === 'active') {
+                                                    return 'heroicon-o-check-circle';
+                                                }
+                                                return 'heroicon-o-x-circle'; 
+                                            })
+                                            ->default('active')
+                                            ->live()
+                                            ->required(),
+
+                                    ]),
+
+
+
+
+
+                            ]),
                     ]),
-
-                // the member specific data
-
-                Section::make('User Information')
-                    ->description('Fill in the user details.')
-                    ->columns([
-                        'sm' => 2,
-                        'md' => 3,
-                        'xl' => 4,
-                    ])
-                    ->schema([
-                        TextInput::make('membership_id')
-                            ->label('Membership ID')
-                            ->unique(
-                                table: 'members',           // ✅ Check in `members` table
-                                column: 'membership_id',    // ✅ The column to check
-                                ignoreRecord: true,         // ✅ Ignore current record when editing
-                            )
-                            ->default(fn() => 'MEM-' . now()->format('Y') . '-' . random_int(1000, 9999))
-                            ->required(),
-
-                        Select::make('package_id')
-                            ->label('Package')
-                            ->options(Package::pluck('name', 'id'))
-                            ->searchable()
-                            ->nullable()
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function (Set $set, Get $get) {
-
-                                $packageId = $get('package_id'); // get the selected package ID
-                                if (!$packageId) {
-                                    return;
-                                }
-
-                                $package = Package::find($packageId); // find the package by ID
-                                if ($package) { // if the package exists, set the duration unit
-                                    $set('duration_unit', $package->duration_unit ?? 'month');
-                                }
-
-                                // self::calculateMembershipValidity($set, $get);
-                                static::calcPayDateRanges(
-                                    set: $set,
-                                    get: $get,
-                                    startingDatePath: 'starting_date',
-                                    durationValuePath: 'duration_value',
-                                    durationUnitPath: 'duration_unit',
-                                    outputFromPath: 'valid_from',
-                                    outputUntilPath: 'valid_until'
-                                );
-                            }),
-
-                        // Add hidden field to store duration_unit
-                        Hidden::make('duration_unit')
-                            ->dehydrated(false), // Will hold 'day', 'week', 'month', 'year'
-
-                        TextInput::make('duration_value')
-                            ->label('Durations')
-                            ->numeric()
-                            ->step(1) // forces integer input in browser
-                            ->minValue(1)
-                            ->default(1)
-                            ->required()
-                            ->live()
-                            ->suffix(fn(Get $get) => match ($get('duration_unit')) {
-                                'day' => 'Day(s)',
-                                'week' => 'Week(s)',
-                                'month' => 'Month(s)',
-                                'year' => 'Year(s)',
-                                default => 'Month(s)',
-                            })
-                            ->afterStateUpdated(function (Set $set, Get $get) {
-                                // self::calculateMembershipValidity($set, $get);
-                                static::calcPayDateRanges(
-                                    set: $set,
-                                    get: $get,
-                                    startingDatePath: 'starting_date',
-                                    durationValuePath: 'duration_value',
-                                    durationUnitPath: 'duration_unit',
-                                    outputFromPath: 'valid_from',
-                                    outputUntilPath: 'valid_until'
-                                );
-                            }),
-                    ]),
-
-                Section::make('User Information')
-                    ->description('Fill in the user details.')
-                    ->columns([
-                        'sm' => 2,
-                        'md' => 3,
-                        'xl' => 4,
-                    ])
-                    ->schema([
-
-                        DatePicker::make('starting_date')
-                            ->ethiopic()
-                            ->label('Starting Date')
-                            ->required()
-                            ->default(now())
-                            ->live()
-                            ->afterStateUpdated(function (Set $set, Get $get) {
-                                // self::calculateMembershipValidity($set, $get);
-                                static::calcPayDateRanges(
-                                    set: $set,
-                                    get: $get,
-                                    startingDatePath: 'starting_date',
-                                    durationValuePath: 'duration_value',
-                                    durationUnitPath: 'duration_unit',
-                                    outputFromPath: 'valid_from',
-                                    outputUntilPath: 'valid_until'
-                                );
-                            }),
-                        DatePicker::make('valid_from')
-                            ->ethiopic()
-                            ->label('Valid From')
-                            ->disabled()
-                            ->dehydrated(),
-
-                        DatePicker::make('valid_until')
-                            ->ethiopic()
-                            ->label('Valid Until')
-                            ->disabled()
-                            ->dehydrated(),
-
-
-
-                        Select::make('status')
-                            ->options([
-                                'active' => 'Active',
-                                'inactive' => 'Inactive',
-                                'suspended' => 'Suspended',
-                            ])
-                            ->default('active')
-                            ->required(),
-
-                    ]),
-
-                // --- Emergency Contact (Only for members) ---
-                Section::make('Emergency Contact')
-                    ->schema([
-                        TextInput::make('emergency_contact_name')
-                            ->label('Name')
-                            ->maxLength(255),
-                        // ->default(null),
-                        // ->required(fn (Get $get) => $get('role') === 'member'),
-
-                        TextInput::make('emergency_contact_phone')
-                            ->label('Phone')
-                            ->tel(),
-                        // ->required(fn (Get $get) => $get('role') === 'member'),
-                    ])
-                    ->columns(2)
-                    ->hidden(fn(Get $get) => $get('role') !== 'member'),
-
-                // --- Notes ---
-                Section::make('Notes')
-                    ->schema([
-                        Forms\Components\Textarea::make('notes')
-                            ->label('Additional Notes')
-                            ->rows(3)
-                            ->columnSpanFull(),
-                    ])
-                    ->hidden(fn(Get $get) => $get('role') !== 'member'),
-
 
             ]);
     }
@@ -540,7 +586,7 @@ class MemberResource extends Resource
                                     }),
                             ])->columns(2),
 
-                            Section::make('Payment & Dates 💰')
+                        Section::make('Payment & Dates 💰')
                             ->description('Enter payment details and validity period.')
                             ->schema([
                                 Forms\Components\TextInput::make('amount')
@@ -653,12 +699,12 @@ class MemberResource extends Resource
                         // Payment model observer (booted method) handles updating the Member
                         // automatically when a 'completed' payment is created. 
                         // But if want it to be explicit uncomment this
-                        
+            
                         $record->update([
                             'valid_until' => $data['valid_until'],
                             'status' => 'active',
                         ]);
-                        
+
 
                         Notification::make()
                             ->title('Payment Processed')
