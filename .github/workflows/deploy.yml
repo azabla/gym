@@ -65,11 +65,12 @@ jobs:
           local-dir: ./
           server-dir: /laravel-gym/
           exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
             public/
-            .git*
             .github/
             .env.example
-            node_modules/
             tests/
             storage/
             bootstrap/cache/
