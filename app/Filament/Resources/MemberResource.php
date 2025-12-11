@@ -110,7 +110,7 @@ class MemberResource extends Resource
                                                 ->label('Date of Birth')
                                                 ->placeholder('Select Date of Birth')
                                                 ->maxDate(now()->subYears(10))
-                                                ->prefixIcon('heroicon-o-calendar')
+                                                ->prefixIcon('heroicon-o-cake')
                                                 ->default(null),
                                         ]),
                                     ]),
