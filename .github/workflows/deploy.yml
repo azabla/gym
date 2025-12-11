@@ -31,7 +31,7 @@ jobs:
       - name: Build frontend assets
         run: |
           npm ci
-          npm run build -- --prod
+          npm run build 
 
       - name: Generate production .env
         run: |
