@@ -38,7 +38,7 @@ jobs:
       - name: Set Directory Permissions
         run: chmod -R 777 storage bootstrap/cache
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
       - name: Install npm Dependencies
@@ -48,7 +48,7 @@ jobs:
       - name: Build Frontend Assets
         run: npm run build
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: public/
