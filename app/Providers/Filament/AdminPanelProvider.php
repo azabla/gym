@@ -62,7 +62,7 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->authorization(fn ($user) => $user->email === 'admin@example.com')
+         
             ->viteTheme('resources/css/filament/admin/theme.css'); // 👈 This loads your compiled CSS
     }
 }
