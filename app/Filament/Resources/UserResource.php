@@ -31,6 +31,8 @@ use Illuminate\Validation\Rule;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Group;
 
 class UserResource extends Resource
 {
@@ -45,240 +47,285 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('User Information')
-                ->description('Fill in the user details.')
-                ->schema([
+                Grid::make(3)
+                    ->schema([
+                        // --- LEFT COLUMN: Personal & Contact Info (Takes 2/3 width) ---
+                        Group::make()
+                            ->columnSpan(['lg' => 2])
+                            ->schema([
 
-                  TextInput::make('name')
-                    ->label('Last Name')
-                    ->minLength(2)
-                    ->maxLength(20)
-                    ->required()
-
-                ])
-                ->columns(2),
-                Section::make('User Address')
-                ->description('Fill in the user details.')
-                ->schema([
-                    TextInput::make('phone')
-                    ->tel()
-                    ->maxLength(255)
-                    ->default(null),
-                    TextInput::make('address')
-                    ->maxLength(255)
-                    ->default(null),
-                ])->columns(2),
-                Section::make('Dates')
-                ->description('Fill in the user details.')
-                ->schema([
-                DatePicker::make('dob'),
-                Select::make('gender')
-                     ->label('Gender') 
-                     ->options([
-                            'male' => 'Male',
-                            'female' => 'Female',
-                     ])
-                    ->default('male')
-                    ->native(false)
-                    ->required(),
-                ])->columns(2),
-                Section::make('Additional Information')
-                ->description('Fill in the user details.')
-                ->schema([ 
-                TextInput::make('username')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('email')
-                    ->email()
-                    ->maxLength(255)
-                    ->default(null),
-                TextInput::make('password')
-                    ->password()
-                    ->maxLength(255)
-                    ->default(null),
-                // TextInput::make('avatar')
-                //     ->maxLength(255)
-                //     ->default(null),
-                FileUpload::make('avatar')
-                     ->avatar()
-                     ->directory('avatars')
-                     ->disk('public')
-                     ->visibility('public')
-                ])->columns(2),
-                 Section::make('User Role')
-                ->description('Fill in the user details.')
-                ->schema([
-                    Select::make('role')
-                    ->options([
-                        'admin' => 'Admin',
-                        'cashier' => 'Cashier',
-                        'member' => 'Member',
-                    ])
-                    ->required()
-                    ->native(false)
-                    ->live()
-                ]),
+                                Section::make('Personal Information ')
+                                    ->description('Basic identification details.')
+                                    ->collapsed(false)
+                                    ->schema([
+                                        TextInput::make('name')
+                                            ->label('Full Name')
+                                            ->minLength(2)
+                                            ->maxLength(30)
+                                            ->required()
+                                            ->prefixIcon('heroicon-o-user')
+                                            ->placeholder('John')
+                                            ->columns(2),
+                                        TextInput::make('phone')
+                                            ->tel()
+                                            ->maxLength(255)
+                                            ->placeholder('09********')
+                                            ->prefixIcon('heroicon-o-phone')
+                                            ->default(null),
+                                        TextInput::make('address')
+                                            ->maxLength(255)
+                                            ->prefixIcon('heroicon-o-map-pin')
+                                            ->placeholder('123 Main St, City, Country')
+                                            ->default(null),
+                                        DatePicker::make('dob')
+                                            ->label('Date of Birth')
+                                            ->placeholder('YYYY-MM-DD')
+                                            ->default(null)
+                                            ->prefixIcon('heroicon-o-cake')
+                                            ->ethiopic()
+                                            ->native(false),
+                                        Select::make('gender')
+                                            ->label('Gender')
+                                            ->prefixIcon('heroicon-o-user-circle')
+                                            ->options([
+                                                'male' => 'Male',
+                                                'female' => 'Female',
+                                            ])
+                                            ->default('male')
+                                            ->native(false)
+                                            ->required(),
+                                    ])->columns(2),
 
 
-
-
-            // --- Membership Fields (Only shown if role == 'member') ---
-            Section::make('Membership Details')
-                ->schema([
-                    Placeholder::make('role_hint')
-                        ->content('Membership details will be managed after creation.')
-                        ->visible(fn (Get $get) => $get('role') !== 'member'),
-
-                    // Only show actual fields if role is 'member'
-                    Forms\Components\Grid::make()
-                        ->schema([
-                            Select::make('member.package_id')
-                                ->label('Package')
-                                ->options(Package::pluck('name', 'id'))
-                                ->searchable()
-                                ->nullable()
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(function (Set $set, Get $get) {
-
-                                    $packageId = $get('member.package_id'); // get the selected package ID
-                                    if (!$packageId) {
-                                        return;
-                                    }
-
-                                    $package = Package::find($packageId); // find the package by ID
-                                    if ($package) { // if the package exists, set the duration unit
-                                        $set('duration_unit', $package->duration_unit ?? 'month');
-                                    } 
-
-                                    static::calcPayDateRanges(
-                                        set: $set,
-                                        get: $get,
-                                        startingDatePath: 'member.starting_date',
-                                        durationValuePath: 'member.duration_value',
-                                        durationUnitPath: 'duration_unit',
-                                        outputFromPath: 'member.valid_from',
-                                        outputUntilPath: 'member.valid_until'
-                                    );
-                                }),
-
-                            // Add hidden field to store duration_unit
-                            Hidden::make('duration_unit')
-                            ->dehydrated(false), // Will hold 'day', 'week', 'month', 'year'
-
-                            TextInput::make('member.duration_value')
-                                ->label('Duration (Months)')
-                                ->numeric()
-                                ->step(1) // forces integer input in browser
-                                ->minValue(1)
-                                ->default(1)
-                                ->required()
-                                ->live()
-                                ->suffix(fn (Get $get) => match ($get('duration_unit')) {
-                                    'day' => 'Day(s)',
-                                    'week' => 'Week(s)',
-                                    'month' => 'Month(s)',
-                                    'year' => 'Year(s)',
-                                    default => 'Unit(s)',
-                                })
-                                ->afterStateUpdated(function (Set $set, Get $get) {
-                                    static::calcPayDateRanges(
-                                        set: $set,
-                                        get: $get,
-                                        startingDatePath: 'member.starting_date',
-                                        durationValuePath: 'member.duration_value',
-                                        durationUnitPath: 'duration_unit',
-                                        outputFromPath: 'member.valid_from',
-                                        outputUntilPath: 'member.valid_until'
-                                    );
-                                }),
-
-                            DatePicker::make('member.starting_date')
-                                ->label('Starting Date')
-                                ->required()
-                                ->default(now())
-                                ->live()
-                                ->afterStateUpdated(function (Set $set, Get $get) {
-                                     static::calcPayDateRanges(
-                                        set: $set,
-                                        get: $get,
-                                        startingDatePath: 'member.starting_date',
-                                        durationValuePath: 'member.duration_value',
-                                        durationUnitPath: 'duration_unit',
-                                        outputFromPath: 'member.valid_from',
-                                        outputUntilPath: 'member.valid_until'
-                                    );
-                                }),
-                            DatePicker::make('member.valid_from')
-                                ->label('Valid From')
-                                ->disabled()
-                                ->dehydrated(),
-
-                            DatePicker::make('member.valid_until')
-                                ->label('Valid Until')
-                                ->disabled()
-                                ->dehydrated(),
-
-                            Hidden::make('member.id'),
-                            TextInput::make('member.membership_id')
-                                ->label('Membership ID')
-                                ->rule(function(Get $get){
-                                    $memberId = $get('member.id');
-                                    return Rule::unique('members', 'membership_id')->ignore($memberId);  
-                                })
-                                //  ->unique(
-                                //     table: 'members',           // ✅ Check in `members` table
-                                //     column: 'membership_id',    // ✅ The column to check
-                                //     ignoreRecord: true,         // ✅ Ignore current record when editing
-                                // )
-                                ->default(fn () => 'MEM-' . now()->format('Y') . '-' . random_int(1000, 9999))
-                                ->required(),
-
-                            Select::make('member.status')
-                                ->options([
-                                    'active' => 'Active',
-                                    'inactive' => 'Inactive',
-                                    'suspended' => 'Suspended',
-                                ])
-                                ->default('active')
-                                ->required(),
-                        ])
-                        ->columns(3)
-                        ->visible(fn (Get $get) => $get('role') === 'member'),
-                                ]),
-                // ->hidden(fn (Get $get) => $get('role') !== 'member'),
+                                Section::make('Account Security & Role 🔐')
+                                    ->description('Manage login credentials and access level.')
+                                    ->collapsed(false)
+                                    ->schema([
+                                        Grid::make(2)->schema([
+                                            TextInput::make('username')
+                                                ->required()
+                                                ->prefixIcon('heroicon-o-user-circle')
+                                                ->maxLength(255)
+                                                ->required()
+                                                ->unique(
+                                                    ignoreRecord: true,
+                                                ),
+                                            TextInput::make('email')
+                                                ->email()
+                                                ->maxLength(255)
+                                                ->prefixIcon('heroicon-o-envelope')
+                                                ->default(null)
+                                                ->required(),
+                                            TextInput::make('password')
+                                                ->password()
+                                                ->prefixIcon('heroicon-o-lock-closed')
+                                                ->maxLength(255)
+                                                ->required()
+                                                ->default(null),
+                                            // TextInput::make('avatar')
+                                            //     ->maxLength(255)
+                                            //     ->default(null),
 
 
 
+                                            Select::make('role')
+                                                ->options([
+                                                    'admin' => 'Admin',
+                                                    'cashier' => 'Cashier',
+                                                    'member' => 'Member',
+                                                ])
+                                                ->required()
+                                                ->prefixIcon('heroicon-o-shield-check')
+                                                ->native(false)
+                                                ->live()
 
-            // --- Emergency Contact (Only for members) ---
-            Section::make('Emergency Contact')
-                ->schema([
-                    TextInput::make('member.emergency_contact_name')
-                        ->label('Name')
-                        ->maxLength(255),
-                        // ->default(null),
-                        // ->required(fn (Get $get) => $get('role') === 'member'),
-
-                    TextInput::make('member.emergency_contact_phone')
-                        ->label('Phone')
-                        ->tel(),
-                        // ->required(fn (Get $get) => $get('role') === 'member'),
-                ])
-                ->columns(2)
-                ->hidden(fn (Get $get) => $get('role') !== 'member'),
-
-            // --- Notes ---
-            Section::make('Notes')
-                ->schema([
-                    Forms\Components\Textarea::make('member.notes')
-                        ->label('Additional Notes')
-                        ->rows(3)
-                        ->columnSpanFull(),
-                ])
-                ->hidden(fn (Get $get) => $get('role') !== 'member'),
+                                        ]),
 
 
+                                    ]),
+                                // --- Notes ---
+                                Section::make('Notes 📝')
+                                ->description('Additional information about the user')
+                                ->collapsed(false)
+                                    ->schema([
+                                        Forms\Components\Textarea::make('member.notes')
+                                            ->label('Additional Notes')
+                                            ->rows(3)
+                                            ->columnSpanFull(),
+                                    ])
+                                    ->hidden(fn(Get $get) => $get('role') !== 'member'),
+
+                            ]),
+
+
+
+                        Group::make()
+                            ->columnSpan(['lg' => 1])
+                            ->schema([
+                                Section::make('Profile Image 📸')
+                                ->collapsed(false)
+                                    ->schema([
+                                        FileUpload::make('avatar')
+                                            ->label('Avatar')
+                                            ->hiddenLabel()
+                                            ->avatar()
+                                            ->directory('avatars')
+                                            ->disk('public')
+                                            ->visibility('public')
+                                            ->alignCenter(),
+                                    ]),
+                                // --- Membership Fields (Only shown if role == 'member') ---
+                                Section::make('Metadata & Status ✨')
+                                ->collapsed(false)
+                                    ->schema([
+                                        Placeholder::make('role_hint')
+                                            ->content('Membership details will be managed after creation.')
+                                            ->visible(fn(Get $get) => $get('role') !== 'member'),
+
+                                        // Only show actual fields if role is 'member'
+                                       Grid::make(1)
+                                            ->schema([
+                                                Select::make('member.package_id')
+                                                    ->label('Package')
+                                                    ->options(Package::pluck('name', 'id'))
+                                                    ->searchable()
+                                                    ->nullable()
+                                                    ->required()
+                                                    ->live()
+                                                    ->extraAttributes(['class' => 'font-bold text-primary-600'])
+                                                    ->afterStateUpdated(function (Set $set, Get $get) {
+
+                                                        $packageId = $get('member.package_id'); // get the selected package ID
+                                                        if (!$packageId) {
+                                                            return;
+                                                        }
+
+                                                        $package = Package::find($packageId); // find the package by ID
+                                                        if ($package) { // if the package exists, set the duration unit
+                                                            $set('duration_unit', $package->duration_unit ?? 'month');
+                                                        }
+
+                                                        static::calcPayDateRanges(
+                                                            set: $set,
+                                                            get: $get,
+                                                            startingDatePath: 'member.starting_date',
+                                                            durationValuePath: 'member.duration_value',
+                                                            durationUnitPath: 'duration_unit',
+                                                            outputFromPath: 'member.valid_from',
+                                                            outputUntilPath: 'member.valid_until'
+                                                        );
+                                                    }),
+
+                                                // Add hidden field to store duration_unit
+                                                Hidden::make('duration_unit')
+                                                    ->dehydrated(false), // Will hold 'day', 'week', 'month', 'year'
+
+                                                TextInput::make('member.duration_value')
+                                                    ->label('Duration (Months)')
+                                                    ->numeric()
+                                                    ->step(1) // forces integer input in browser
+                                                    ->minValue(1)
+                                                    ->default(1)
+                                                    ->required()
+                                                    ->live()
+                                                    ->suffix(fn(Get $get) => match ($get('duration_unit')) {
+                                                        'day' => 'Day(s)',
+                                                        'week' => 'Week(s)',
+                                                        'month' => 'Month(s)',
+                                                        'year' => 'Year(s)',
+                                                        default => 'Unit(s)',
+                                                    })
+                                                    ->afterStateUpdated(function (Set $set, Get $get) {
+                                                        static::calcPayDateRanges(
+                                                            set: $set,
+                                                            get: $get,
+                                                            startingDatePath: 'member.starting_date',
+                                                            durationValuePath: 'member.duration_value',
+                                                            durationUnitPath: 'duration_unit',
+                                                            outputFromPath: 'member.valid_from',
+                                                            outputUntilPath: 'member.valid_until'
+                                                        );
+                                                    }),
+
+                                                DatePicker::make('member.starting_date')
+                                                    ->label('Starting Date')
+                                                    ->required()
+                                                    ->default(now())
+                                                    ->live()
+                                                    ->afterStateUpdated(function (Set $set, Get $get) {
+                                                        static::calcPayDateRanges(
+                                                            set: $set,
+                                                            get: $get,
+                                                            startingDatePath: 'member.starting_date',
+                                                            durationValuePath: 'member.duration_value',
+                                                            durationUnitPath: 'duration_unit',
+                                                            outputFromPath: 'member.valid_from',
+                                                            outputUntilPath: 'member.valid_until'
+                                                        );
+                                                    }),
+                                                DatePicker::make('member.valid_from')
+                                                    ->label('Valid From')
+                                                    ->disabled()
+                                                    ->dehydrated(),
+
+                                                DatePicker::make('member.valid_until')
+                                                    ->label('Valid Until')
+                                                    ->disabled()
+                                                    ->dehydrated(),
+
+                                                Hidden::make('member.id'),
+                                                TextInput::make('member.membership_id')
+                                                    ->label('Membership ID')
+                                                    ->rule(function (Get $get) {
+                                                        $memberId = $get('member.id');
+                                                        return Rule::unique('members', 'membership_id')->ignore($memberId);
+                                                    })
+                                                    //  ->unique(
+                                                    //     table: 'members',           // ✅ Check in `members` table
+                                                    //     column: 'membership_id',    // ✅ The column to check
+                                                    //     ignoreRecord: true,         // ✅ Ignore current record when editing
+                                                    // )
+                                                    ->default(fn() => 'MEM-' . now()->format('Y') . '-' . random_int(1000, 9999))
+                                                    ->required(),
+
+                                                Select::make('member.status')
+                                                    ->options([
+                                                        'active' => 'Active',
+                                                        'inactive' => 'Inactive',
+                                                        'suspended' => 'Suspended',
+                                                    ])
+                                                    ->default('active')
+                                                    ->required(),
+                                            ])
+                                            ->columns(2)
+                                            ->visible(fn(Get $get) => $get('role') === 'member'),
+                                    ]),
+                                // ->hidden(fn (Get $get) => $get('role') !== 'member'),
+
+
+
+
+                                // --- Emergency Contact (Only for members) ---
+                                Section::make('Emergency Contact')
+                                ->collapsed(false)
+                                    ->schema([
+                                        TextInput::make('member.emergency_contact_name')
+                                            ->label('Name')
+                                            ->maxLength(255),
+                                        // ->default(null),
+                                        // ->required(fn (Get $get) => $get('role') === 'member'),
+
+                                        TextInput::make('member.emergency_contact_phone')
+                                            ->label('Phone')
+                                            ->tel(),
+                                        // ->required(fn (Get $get) => $get('role') === 'member'),
+                                    ])
+                                    ->hidden(fn(Get $get) => $get('role') !== 'member'),
+
+
+
+                            ]),
+                    ]),
             ]);
     }
 
@@ -294,7 +341,7 @@ class UserResource extends Resource
         $duration = (int) ($get('member.duration_value') ?? 1);
         $durationUnit = $get('duration_unit');
 
-        if (! $startingDate) {
+        if (!$startingDate) {
             return;
         }
 
@@ -313,7 +360,7 @@ class UserResource extends Resource
         $set('member.valid_until', $until->toDateString());
     }
 
-     // Save member data when user is saved
+    // Save member data when user is saved
     // public static function mutateFormDataBeforeCreate(array $data): array
     // {
     //      // Combine first and last name into 'name'
@@ -354,7 +401,7 @@ class UserResource extends Resource
     // // {
     // //     $user = static::getRecord();
 
-    
+
     // //     if ($user?->member) {
     // //         $data['member'] = $user->member->toArray();
     // //     }
@@ -391,7 +438,7 @@ class UserResource extends Resource
     //         return $data;
     //     }
 
- 
+
 
     public static function table(Table $table): Table
     {
@@ -427,27 +474,27 @@ class UserResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('role')
-                ->options([
-                    'admin' => 'Admin',
-                    'cashier' => 'Cashier',
-                    'member' => 'Member',
-                ])
-                ->placeholder('All Roles'),
+                    ->options([
+                        'admin' => 'Admin',
+                        'cashier' => 'Cashier',
+                        'member' => 'Member',
+                    ])
+                    ->placeholder('All Roles'),
                 SelectFilter::make('gender')
-                ->options([
-                    'male' => 'Male',
-                    'female' => 'Female',
-                ])
-                ->placeholder('All Genders'),
+                    ->options([
+                        'male' => 'Male',
+                        'female' => 'Female',
+                    ])
+                    ->placeholder('All Genders'),
                 SelectFilter::make('address')
-                ->options(function () {
-                    return User::query()
-                        ->distinct()
-                        ->pluck('address', 'address')
-                        ->filter(fn ($value) => !is_null($value) && $value !== '')
-                        ->toArray();
-                })
-                ->searchable(),
+                    ->options(function () {
+                        return User::query()
+                            ->distinct()
+                            ->pluck('address', 'address')
+                            ->filter(fn($value) => !is_null($value) && $value !== '')
+                            ->toArray();
+                    })
+                    ->searchable(),
 
             ])
             ->actions([
