@@ -42,17 +42,16 @@ jobs:
           server-dir: /
           exclude: |
             **/.git*
-            **/.github/
-            **/node_modules/
-            **/vendor/
-            **/tests/
-            **/storage/*
-            **/*.sql
-            **/*.log
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            storage/logs/*
+            storage/debugbar/*
+            *.sql
+            *.log
             .env.example
             composer.json
             composer.lock
             package*.json
             *.md
-          exclude-deployment: true
         
