@@ -56,75 +56,11 @@ jobs:
       # ───────────────────────────────────────
       # UPLOAD LARAVEL CORE (SECURE, NON-PUBLIC)
       # ───────────────────────────────────────
-      - name: Upload Laravel core to /laravel-gym/
+      - name: Deploy to the server
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: /laravel-gym/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            public/
-            .github/
-            .env.example
-            tests/
-            storage/
-            bootstrap/cache/
-
-      # IMPORTANT: Upload storage & cache as empty dirs with correct perms
-      - name: Create empty storage & cache dirs
-        run: |
-          mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
-          mkdir -p bootstrap/cache
-
-      - name: Upload storage & bootstrap/cache (empty but present)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: /laravel-gym/
-          include: |
-            storage/
-            bootstrap/cache/
-
-      # ───────────────────────────────────────
-      # UPLOAD PUBLIC FILES TO /public_html/gym/
-      # ───────────────────────────────────────
-      - name: Upload public/ to /public_html/gym/
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./public/
-          server-dir: /public_html/gym/
-          exclude: |
-            .htaccess  # only exclude if you manage it manually
-
-      # OPTIONAL: Upload custom .htaccess for subdirectory
-      - name: Upload .htaccess to /public_html/gym/
-        run: |
-          cat > gym-htaccess <<'EOL'
-          <IfModule mod_rewrite.c>
-              RewriteEngine On
-
-              # Handle Authorization Header
-              RewriteCond %{HTTP:Authorization} .
-              RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-
-              # Redirect trailing slashes
-              RewriteRule ^(.*)/$ /gym/$1 [L,R=301]
-
-              # Handle front controller
-              RewriteCond %{REQUEST_FILENAME} !-d
-              RewriteCond %{REQUEST_FILENAME} !-f
-              RewriteRule ^ index.php [L]
-          </IfModule>
-          EOL
-        # Then upload it (optional step using FTP action)
+          server-dir: /
+        
