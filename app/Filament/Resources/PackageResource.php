@@ -133,27 +133,54 @@ class PackageResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('Roll No.')->label('Roll No.')->rowIndex(),
                 Tables\Columns\ImageColumn::make('image')
-                ->rounded(),
+                    ->label('Profile')
+                    ->circular()
+                    ->extraImgAttributes([
+                        'class' => 'transition-transform duration-300 hover:scale-[4] hover:z-50',
+                    ])
+                    ->defaultImageUrl(url('/images/default-user.png')),
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable()
+                    ->limit(30)
+                    ->wrap()
+                    ->label('Package Name')
+                    ->badge('primary'),
                 Tables\Columns\TextColumn::make('price')
                     ->money()
+                    ->label('Price')
+                    ->tooltip('Price in Brr')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('duration_unit'),
-                Tables\Columns\TextColumn::make('status'),
+                Tables\Columns\TextColumn::make('duration_unit')
+                    ->label('Duration Unit')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->sortable()
+                    ->toggleable()
+                    ->badge()
+                    ->colors([
+                        'success' => 'active',
+                        'danger' => 'inactive',
+                    ]),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->label('Deleted At'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->label('Created At'),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->label('Updated At'),
             ])
+            ->striped()
+            ->deferloading()
             ->filters([
                 //
             ])

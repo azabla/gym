@@ -452,7 +452,6 @@ class UserResource extends Resource
                         'class' => 'transition-transform duration-300 hover:scale-[4] hover:z-50',
                     ])
                     ->defaultImageUrl(url('/images/default-user.png')),
-                Tables\Columns\TextColumn::make('role'),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Member Details')
                     ->searchable()
@@ -460,18 +459,55 @@ class UserResource extends Resource
                     ->description(fn($record) => $record->email) // Puts email under the name
                     ->copyable() // Allows clicking to copy email
                     ->tooltip('Click to copy name'),
+                Tables\Columns\TextColumn::make('role')
+                    ->badge()
+                    ->sortable()
+                    ->colors([
+                        'admin' => 'danger',
+                        'cashier' => 'warning',
+                        'member' => 'success',
+                    ])
+                    ->searchable()
+                    ->toggleable()
+                    ->wrap()
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->icon(fn($record) => match ($record->role) {
+                        'admin' => 'heroicon-o-shield-check',
+                        'cashier' => 'heroicon-o-currency-dollar',
+                        'member' => 'heroicon-o-user-group',
+                        default => null,
+                    }),
                 Tables\Columns\TextColumn::make('username')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('dob')
+                    ->label('Date of Birth')
                     ->date()
+                    ->tooltip(fn($record): string => $record->dob->diffForHumans())
                     ->sortable(),
-                Tables\Columns\TextColumn::make('gender'),
+                Tables\Columns\TextColumn::make('gender')
+                ->badge()
+                ->colors([
+                    'info' => 'male',   
+                    'danger' => 'female', 
+                ])
+                ->icon(fn($record) => match($record->gender){
+                    'male'=>'heroicon-o-user',
+                    'female' =>'heroicon-o-user-plus',
+                    default => null,
+                }),
                 Tables\Columns\TextColumn::make('address')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(20)
+                    ->tooltip(fn($record) => $record->address),
                 Tables\Columns\TextColumn::make('phone')
-                    ->searchable(),
+                ->label('Phone Number')    
+                ->searchable()
+                    ->icon('heroicon-o-phone')
+                    ->badge()
+                    ->copyable()
+                    ->copyMessage('Phone number copied')
+                    ->copyMessageDuration(1500)
+                    ->tooltip('Click to copy Number'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -481,6 +517,8 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->deferLoading() 
+            ->striped()
             ->filters([
                 SelectFilter::make('role')
                     ->options([

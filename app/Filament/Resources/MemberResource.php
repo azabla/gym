@@ -393,9 +393,6 @@ class MemberResource extends Resource
                     )
                     ->tooltip('Default unit if no package assigned')
                     ->sortable(),
-                // TextColumn::make('duration_value')
-                //     ->numeric()
-                //     ->sortable(),
                 TextColumn::make('starting_date')
                     ->label('Member Since')
                     ->dateTime('M d, Y')
