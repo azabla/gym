@@ -212,6 +212,7 @@ class PaymentResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('Roll No.')->label('Roll No.')->rowIndex(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
                     ->formatStateUsing(fn($record) => $record->member?->user?->name . ' (' . ($record->member?->membership_id ?? 'N/A') . ')')
@@ -225,26 +226,54 @@ class PaymentResource extends Resource
                         return $query->join('members', 'payments.member_id', '=', 'members.id')
                             ->join('users', 'members.user_id', '=', 'users.id')
                             ->orderBy('users.name');
-                    }),
+                    })
+                    ,
                 Tables\Columns\TextColumn::make('package.name')
-                    ->numeric()
-                    ->sortable(),
+                ->badge()
+                ->color('info')
+                ->icon('heroicon-o-gift')
+                ->tooltip(fn($record) => "Price: " . number_format($record->package->price, 2) . " Birr for a {$record->package->duration_unit}"),
                 Tables\Columns\TextColumn::make('amount')
                     ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('payment_method'),
+                    ->sortable()
+                    ->tooltip('Total amount paid in Birr'),
+                Tables\Columns\TextColumn::make('payment_method')
+                    ->sortable()
+                    ->tooltip('Method of payment used')
+                    ->badge(fn ($state) => $state === 'cash' ? 'success' : 'primary')
+                    ->icon(fn ($state) => $state === 'cash' ? 'heroicon-o-currency-dollar' : 'heroicon-o-credit-card'),
                 Tables\Columns\TextColumn::make('payment_date')
                     ->date()
+                    ->tooltip('Date when the payment was made')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('transaction_id')
-                    ->searchable(),
+                ->label('Transaction ID')
+                ->limit(20)
+                    ->searchable()
+                    ->tooltip(fn($state) => "Transaction ID: {$state}"),
                 Tables\Columns\TextColumn::make('valid_from')
                     ->date()
+                    ->tooltip('Start date of membership validity')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('valid_until')
                     ->date()
+                    ->tooltip('End date of membership validity')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('status'),
+                Tables\Columns\TextColumn::make('status')
+                ->badge()
+                -> color(fn ($state) => match ($state) {
+                    'completed' => 'success',
+                    'pending' => 'warning',
+                    'failed' => 'danger',
+                    default => 'secondary',
+                })
+                ->icon(fn ($state) => match ($state) {
+                    'completed' => 'heroicon-o-check-circle',
+                    'pending' => 'heroicon-o-clock',
+                    'failed' => 'heroicon-o-x-circle',
+                    default => 'heroicon-o-question-mark-circle',
+                })
+                ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -254,6 +283,8 @@ class PaymentResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->striped()
+            ->deferloading()
             ->filters([
                 Filter::make('payment_date_range')
                     ->form([

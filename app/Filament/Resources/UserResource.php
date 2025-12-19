@@ -145,8 +145,8 @@ class UserResource extends Resource
                                     ]),
                                 // --- Notes ---
                                 Section::make('Notes 📝')
-                                ->description('Additional information about the user')
-                                ->collapsed(false)
+                                    ->description('Additional information about the user')
+                                    ->collapsed(false)
                                     ->schema([
                                         Forms\Components\Textarea::make('member.notes')
                                             ->label('Additional Notes')
@@ -163,7 +163,7 @@ class UserResource extends Resource
                             ->columnSpan(['lg' => 1])
                             ->schema([
                                 Section::make('Profile Image 📸')
-                                ->collapsed(false)
+                                    ->collapsed(false)
                                     ->schema([
                                         FileUpload::make('avatar')
                                             ->label('Avatar')
@@ -176,14 +176,14 @@ class UserResource extends Resource
                                     ]),
                                 // --- Membership Fields (Only shown if role == 'member') ---
                                 Section::make('Metadata & Status ✨')
-                                ->collapsed(false)
+                                    ->collapsed(false)
                                     ->schema([
                                         Placeholder::make('role_hint')
                                             ->content('Membership details will be managed after creation.')
                                             ->visible(fn(Get $get) => $get('role') !== 'member'),
 
                                         // Only show actual fields if role is 'member'
-                                       Grid::make(1)
+                                        Grid::make(1)
                                             ->schema([
                                                 Select::make('member.package_id')
                                                     ->label('Package')
@@ -307,7 +307,7 @@ class UserResource extends Resource
 
                                 // --- Emergency Contact (Only for members) ---
                                 Section::make('Emergency Contact')
-                                ->collapsed(false)
+                                    ->collapsed(false)
                                     ->schema([
                                         TextInput::make('member.emergency_contact_name')
                                             ->label('Name')
@@ -444,25 +444,70 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('role'),
+                Tables\Columns\TextColumn::make('Roll No.')->label('Roll No.')->rowIndex(),
+                ImageColumn::make('avatar')
+                    ->label('Profile')
+                    ->circular()
+                    ->extraImgAttributes([
+                        'class' => 'transition-transform duration-300 hover:scale-[4] hover:z-50',
+                    ])
+                    ->defaultImageUrl(url('/images/default-user.png')),
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->label('Member Details')
+                    ->searchable()
+                    ->sortable()
+                    ->description(fn($record) => $record->email) // Puts email under the name
+                    ->copyable() // Allows clicking to copy email
+                    ->tooltip('Click to copy name'),
+                Tables\Columns\TextColumn::make('role')
+                    ->badge()
+                    ->sortable()
+                    ->colors([
+                        'admin' => 'danger',
+                        'cashier' => 'warning',
+                        'member' => 'success',
+                    ])
+                    ->searchable()
+                    ->toggleable()
+                    ->wrap()
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->icon(fn($record) => match ($record->role) {
+                        'admin' => 'heroicon-o-shield-check',
+                        'cashier' => 'heroicon-o-currency-dollar',
+                        'member' => 'heroicon-o-user-group',
+                        default => null,
+                    }),
                 Tables\Columns\TextColumn::make('username')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('dob')
+                    ->label('Date of Birth')
                     ->date()
+                    ->tooltip(fn($record): string => $record->dob->diffForHumans())
                     ->sortable(),
-                Tables\Columns\TextColumn::make('gender'),
+                Tables\Columns\TextColumn::make('gender')
+                ->badge()
+                ->colors([
+                    'info' => 'male',   
+                    'danger' => 'female', 
+                ])
+                ->icon(fn($record) => match($record->gender){
+                    'male'=>'heroicon-o-user',
+                    'female' =>'heroicon-o-user-plus',
+                    default => null,
+                }),
                 Tables\Columns\TextColumn::make('address')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(20)
+                    ->tooltip(fn($record) => $record->address),
                 Tables\Columns\TextColumn::make('phone')
-                    ->searchable(),
-                Tables\Columns\ImageColumn::make('avatar')
-                    ->circular()  // Makes it rounded for avatars
-                    ->size(40)
-                    ->defaultImageUrl(url('/images/default-user.png')),   // Fixed size
+                ->label('Phone Number')    
+                ->searchable()
+                    ->icon('heroicon-o-phone')
+                    ->badge()
+                    ->copyable()
+                    ->copyMessage('Phone number copied')
+                    ->copyMessageDuration(1500)
+                    ->tooltip('Click to copy Number'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -472,6 +517,8 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->deferLoading() 
+            ->striped()
             ->filters([
                 SelectFilter::make('role')
                     ->options([
