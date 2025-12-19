@@ -212,6 +212,7 @@ class PaymentResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('Roll No.')->label('Roll No.')->rowIndex(),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
                     ->formatStateUsing(fn($record) => $record->member?->user?->name . ' (' . ($record->member?->membership_id ?? 'N/A') . ')')

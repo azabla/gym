@@ -76,21 +76,7 @@ class PackageResource extends Resource
                                                 ->placeholder('Write a detailed description of the package...')
                                                 ->maxLength(1000),
 
-                                            FileUpload::make('image')
-                                                ->label('Package Image')
-                                                ->image()
-                                                ->imageEditor()
-                                                ->imageEditorEmptyFillColor('#000000')
-                                                ->imagePreviewHeight('250')
-                                                ->maxSize(5120)
-                                                ->uploadingMessage('Uploading package image...'),
-                                        ])
-                                        ->columnSpan(1), // ← Tell it to use one column
-
-                                   Grid::make(1)
-                                        ->schema([
-                                            
-                                            Repeater::make('features')
+                                                Repeater::make('features')
                                                 ->label('Package Features')
                                                 ->schema([
                                                     TextInput::make('feature')
@@ -102,6 +88,23 @@ class PackageResource extends Resource
                                                 ->addActionLabel('Add Feature')
                                                 ->columns(1)
                                                 ->nullable(),
+
+                                            
+                                        ])
+                                        ->columnSpan(1), // ← Tell it to use one column
+
+                                   Grid::make(1)
+                                        ->schema([
+                                            
+                                            FileUpload::make('image')
+                                                ->label('Package Image')
+                                                ->image()
+                                                ->avatar()
+                                                ->imageEditor()
+                                                ->imageEditorEmptyFillColor('#000000')
+                                                ->imagePreviewHeight('250')
+                                                ->maxSize(5120)
+                                                ->uploadingMessage('Uploading package image...'),
                                                
                                             Select::make('status')
                                                 ->options([
@@ -128,13 +131,15 @@ class PackageResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('Roll No.')->label('Roll No.')->rowIndex(),
+                Tables\Columns\ImageColumn::make('image')
+                ->rounded(),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('price')
                     ->money()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('duration_unit'),
-                Tables\Columns\ImageColumn::make('image'),
                 Tables\Columns\TextColumn::make('status'),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()

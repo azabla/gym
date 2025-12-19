@@ -23,6 +23,10 @@ class Member extends Model
         'membership_id',
         'notes',
     ];
+
+    protected $casts = [
+        'starting_date' => 'datetime',
+    ];
      public function user()
     {
         return $this->belongsTo(User::class);
