@@ -5,13 +5,27 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use Carbon\Carbon;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
+    public function canAccessPanel(Panel $panel): bool
+    {
+         // Allow multiple admin emails
+    $adminEmails = [
+        'admin@example.com',
+        'admin@gym.com', 
+        'your-email@gmail.com' // Add your actual email
+    ];
+    
+    // OR check by role
+    return in_array($this->email, $adminEmails) || $this->role === 'admin';
+    }
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
