@@ -186,7 +186,15 @@ class PackageResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                ->modalWidth('4xl') 
+                    ->tooltip('Quick Edit Packages')
+                    ->slideOver() 
+                    ->modalHeading('Update Package Profile')
+                    ->modalDescription('Changes will be applied immediately to the package record.')
+                    ->modalSubmitActionLabel('Save Changes')
+                    ->icon('heroicon-m-pencil-square')
+                    ->color('warning'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -208,7 +216,7 @@ class PackageResource extends Resource
             'index' => Pages\ListPackages::route('/'),
             'create' => Pages\CreatePackage::route('/create'),
             'view' => Pages\ViewPackage::route('/{record}'),
-            'edit' => Pages\EditPackage::route('/{record}/edit'),
+            // 'edit' => Pages\EditPackage::route('/{record}/edit'),
         ];
     }
 }
