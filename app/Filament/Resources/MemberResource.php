@@ -56,7 +56,7 @@ class MemberResource extends Resource
     use PaymentCalculationsTrait;
     protected static ?string $model = Member::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     protected static ?string $navigationGroup = 'User Management';
     protected static ?string $navigationLabel = 'All Members';
@@ -326,7 +326,7 @@ class MemberResource extends Resource
                                                 if ($state === 'active') {
                                                     return 'heroicon-o-check-circle';
                                                 }
-                                                return 'heroicon-o-x-circle'; 
+                                                return 'heroicon-o-x-circle';
                                             })
                                             ->default('active')
                                             ->live()
@@ -357,26 +357,34 @@ class MemberResource extends Resource
             //             ]),
             //     ])
             ->columns([
+                TextColumn::make('Roll No.')->label('Roll No.')->rowIndex(),
                 ImageColumn::make('user.avatar')
                     ->label('Profile')
-                    ->size(32)
                     ->circular()
-                    // ->tooltip(fn (Model $record) =>{
-
-                    // }),
-                    ->defaultImageUrl(url('/images/default-user.png'))
-                    ->extraImgAttributes(['class' => 'bg-gray-200 hover:scale-110 overflow-visible'])
-                ,
-
-
-
+                    ->extraImgAttributes([
+                        'class' => 'transition-transform duration-300 hover:scale-[4] hover:z-50',
+                    ])
+                    ->defaultImageUrl(url('/images/default-user.png')),
                 TextColumn::make('user.name')
-                    ->label('Name')
+                    ->label('Member Details')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->description(fn($record) => $record->user->email) // Puts email under the name
+                    ->copyable() // Allows clicking to copy email
+                    ->tooltip('Click to copy name'),
+                TextColumn::make('user.phone')
+                    ->label('Phone')
+                    ->icon('heroicon-o-phone')
+                    ->badge()
+                    ->copyable()
+                    ->copyMessage('Phone number copied')
+                    ->copyMessageDuration(1500)
+                    ->tooltip('Click to copy phone number'),
                 TextColumn::make('package.name')
-                    ->label('Package')
-                    ->sortable(),
+                    ->badge()
+                    ->color('info')
+                    ->icon('heroicon-o-gift')
+                    ->tooltip(fn($record) => "Price: " . number_format($record->package->price, 2) . " Birr for a {$record->package->duration_unit}"),
                 TextColumn::make('duration_value')
                     ->label('Duration')
                     ->numeric()
@@ -384,18 +392,23 @@ class MemberResource extends Resource
                         fn($state, $record) =>
                         $state . ' ' . ($record->package?->duration_unit ?: 'unit')
                     )
+                    ->tooltip('Default unit if no package assigned')
                     ->sortable(),
-                // TextColumn::make('duration_value')
-                //     ->numeric()
-                //     ->sortable(),
                 TextColumn::make('starting_date')
-                    ->date()
-                    ->sortable(),
+                    ->label('Member Since')
+                    ->dateTime('M d, Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->tooltip(fn($record): string => "Exact registration: " . $record->starting_date->diffForHumans()),
                 TextColumn::make('valid_from')
                     ->date()
+                    ->tooltip('Membership Valid From Date')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
                 TextColumn::make('valid_until')
                     ->date()
+                    ->label('Expiary Date')
+                    ->tooltip('Membership Expiry Date')
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
@@ -410,8 +423,13 @@ class MemberResource extends Resource
                 // TextColumn::make('emergency_contact_name')
                 //     ->searchable(),
                 TextColumn::make('emergency_contact_phone')
-
-                    ->searchable(),
+                    ->label('Emergency Phone')
+                    ->icon('heroicon-o-phone')
+                    ->badge()
+                    ->copyable()
+                    ->copyMessage('Phone number copied')
+                    ->copyMessageDuration(1500)
+                    ->tooltip('click to copy Emergency Contact'),
                 TextColumn::make('membership_id')
                     ->searchable(),
                 TextColumn::make('created_at')
@@ -424,7 +442,8 @@ class MemberResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
 
             ])
-
+            ->deferLoading() // Adds a nice loading shimmer
+            ->striped()
             ->filters([
                 SelectFilter::make('package')
                     ->label('Package')
