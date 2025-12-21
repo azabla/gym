@@ -213,6 +213,13 @@ class PaymentResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('Roll No.')->label('Roll No.')->rowIndex(),
+                Tables\Columns\ImageColumn::make('member.user.avatar')
+                    ->label('Profile')
+                    ->circular()
+                    ->extraImgAttributes([
+                        'class' => 'transition-transform duration-300 hover:scale-[4] hover:z-50',
+                    ])
+                    ->defaultImageUrl(url('/images/default-user.png')),
                 Tables\Columns\TextColumn::make('member.user.name')
                     ->label('Member')
                     ->formatStateUsing(fn($record) => $record->member?->user?->name . ' (' . ($record->member?->membership_id ?? 'N/A') . ')')
@@ -226,8 +233,7 @@ class PaymentResource extends Resource
                         return $query->join('members', 'payments.member_id', '=', 'members.id')
                             ->join('users', 'members.user_id', '=', 'users.id')
                             ->orderBy('users.name');
-                    })
-                    ,
+                    }),
                 Tables\Columns\TextColumn::make('package.name')
                 ->badge()
                 ->color('info')
