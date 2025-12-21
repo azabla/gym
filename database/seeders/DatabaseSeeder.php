@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             PackageSeeder::class,
             MemberPaymentSeeder::class,
+            ExpenseSeeder::class
         ]);
 
         // Optionally, you can create additional seeders for other models
