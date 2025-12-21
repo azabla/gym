@@ -63,7 +63,7 @@ class StatsOverview extends BaseWidget
                 ->color('danger')
                  ->extraAttributes([
                 'class' => 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors',
-                'x-on:click' => "window.location.href = '" . url('/admin/member') . "'",
+                'x-on:click' => "window.location.href = '" . $expiredUrl . "'",
             ]),
                
         ];
