@@ -72,30 +72,29 @@ class MemberResource extends Resource
                             ->columnSpan(['lg' => 2])
                             ->schema([
                                 Section::make('Personal Information ')
-                                    ->relationship('user')
                                     ->description('Basic personal details of the member.')
                                     ->collapsed(false)
                                     ->schema([
                                         Grid::make(2)->schema([
-                                            TextInput::make('name')
+                                            TextInput::make('user.name')
                                                 ->label('Full Name')
                                                 ->placeholder('Abel Asrat')
                                                 ->minLength(2)
                                                 ->maxLength(30)
                                                 ->prefixIcon('heroicon-o-user')
                                                 ->required(),
-                                            TextInput::make('phone')
+                                            TextInput::make('user.phone')
                                                 ->tel()
                                                 ->placeholder('09********')
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-phone')
                                                 ->default(null),
-                                            TextInput::make('address')
+                                            TextInput::make('user.address')
                                                 ->placeholder('Kality O9')
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-map-pin')
                                                 ->default(state: null),
-                                            Select::make('gender')
+                                            Select::make('user.gender')
                                                 ->label('Gender')
                                                 ->options([
                                                     'male' => 'Male',
@@ -105,7 +104,7 @@ class MemberResource extends Resource
                                                 ->native(false)
                                                 ->prefixIcon('heroicon-o-users')
                                                 ->required(),
-                                            DatePicker::make('dob')
+                                            DatePicker::make('user.dob')
                                                 ->native(false)
                                                 ->ethiopic()
                                                 ->label('Date of Birth')
@@ -116,26 +115,25 @@ class MemberResource extends Resource
                                         ]),
                                     ]),
                                 Section::make('Account Security 🔐')
-                                    ->relationship('user')
                                     ->description('Manage login credentials.')
                                     ->collapsed(false) // Collapsed by default to save space
                                     ->schema([
                                         Grid::make(3)->schema([
-                                            Hidden::make('id'),
-                                            TextInput::make('username')
+                                            Hidden::make('user.id'),
+                                            TextInput::make('user.username')
                                                 ->required()
                                                 ->rule(function (Get $get) {
-                                                    $userId = $get('id');
+                                                    $userId = $get('user.id');
                                                     return Rule::unique('users', 'username')->ignore($userId);
                                                 })
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-at-symbol'),
-                                            TextInput::make('email')
+                                            TextInput::make('user.email')
                                                 ->email()
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null),
-                                            TextInput::make('password')
+                                            TextInput::make('user.password')
                                                 ->password()
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-lock-closed')
@@ -522,7 +520,7 @@ class MemberResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->modalWidth('4xl') // Makes the popup size
                     ->tooltip('Quick Edit Member')
-                    ->slideOver()
+                    ->slideOver() 
                     ->modalHeading('Update Member Profile')
                     ->modalDescription('Changes will be applied immediately to the member record.')
                     ->modalSubmitActionLabel('Save Changes')
@@ -794,7 +792,7 @@ class MemberResource extends Resource
         return [
             'index' => Pages\ListMembers::route('/'),
             'create' => Pages\CreateMember::route('/create'),
-            // 'edit' => Pages\EditMember::route('/{record}/edit'),
+            'edit' => Pages\EditMember::route('/{record}/edit'),
         ];
     }
 
