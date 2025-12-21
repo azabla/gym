@@ -68,7 +68,7 @@ class MemberResource extends Resource
             ->schema([
                 Grid::make(3)
                     ->schema([
-                        // --- LEFT COLUMN: Personal & Contact Info (Takes 2/3 width) ---
+                        // Personal & Contact Info
                         Group::make()
                             ->columnSpan(['lg' => 2])
                             ->schema([
@@ -105,7 +105,7 @@ class MemberResource extends Resource
                                                 ->native(false)
                                                 ->prefixIcon('heroicon-o-users')
                                                 ->required(),
-                                            DatePicker::make('dob')
+                                            DatePicker::make('user.dob')
                                                 ->native(false)
                                                 ->ethiopic()
                                                 ->label('Date of Birth')
@@ -518,7 +518,15 @@ class MemberResource extends Resource
 
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->modalWidth('4xl') // Makes the popup size
+                    ->tooltip('Quick Edit Member')
+                    ->slideOver() 
+                    ->modalHeading('Update Member Profile')
+                    ->modalDescription('Changes will be applied immediately to the member record.')
+                    ->modalSubmitActionLabel('Save Changes')
+                    ->icon('heroicon-m-pencil-square')
+                    ->color('warning'),
                 // Add the automatic Pay action
                 Tables\Actions\Action::make('pay')
                     ->label('Pay')
