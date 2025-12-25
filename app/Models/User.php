@@ -16,6 +16,8 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
 
+    protected $guard_name = 'web';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -91,4 +93,21 @@ class User extends Authenticatable
         return Str::of($this->name)->after(' ')->toString();
         
     }
+
+    // app/Models/User.php
+
+protected static function booted()
+{
+    static::created(function ($user) {
+        // If the user was created without any roles (like from the Member form)
+        if ($user->roles()->count() === 0) {
+            $user->assignRole('member');
+        }
+        
+        // Also sync your legacy string column for Flutter/Mobile consistency
+        if (!$user->role) {
+            $user->updateQuietly(['role' => 'member']);
+        }
+    });
+}
 }

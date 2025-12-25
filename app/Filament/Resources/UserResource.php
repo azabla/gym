@@ -569,12 +569,11 @@ class UserResource extends Resource
             ->deferLoading()
             ->striped()
             ->filters([
-                SelectFilter::make('role')
-                    ->options([
-                        'admin' => 'Admin',
-                        'cashier' => 'Cashier',
-                        'member' => 'Member',
-                    ])
+                SelectFilter::make('roles')
+                    ->relationship('roles', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->label('Roles')
                     ->placeholder('All Roles'),
                 SelectFilter::make('gender')
                     ->options([
