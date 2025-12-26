@@ -33,6 +33,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Group;
+use Spatie\Permission\Models\Role as SpatieRole;
 
 class UserResource extends Resource
 {
@@ -45,6 +46,8 @@ class UserResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $memberRoleId = SpatieRole::where('name', 'member')->value('id');
+
         return $form
             ->schema([
                 Grid::make(3)
@@ -128,16 +131,15 @@ class UserResource extends Resource
 
 
 
-                                            Select::make('role')
-                                                ->options([
-                                                    'admin' => 'Admin',
-                                                    'cashier' => 'Cashier',
-                                                    'member' => 'Member',
-                                                ])
-                                                ->required()
-                                                ->prefixIcon('heroicon-o-shield-check')
-                                                ->native(false)
-                                                ->live()
+                                            Forms\Components\Select::make('roles') // Note the 's' for relationship
+                                                ->relationship('roles', 'name') // Connects to the Shield roles table
+                                                ->multiple()
+                                                ->preload()
+                                                ->searchable()
+                                                ->label('Assign Roles')
+                                                ->columnSpanFull()
+                                                ->helperText('Select one or more roles for this user.')
+                                                ->live(),
 
                                         ]),
 
@@ -153,7 +155,19 @@ class UserResource extends Resource
                                             ->rows(3)
                                             ->columnSpanFull(),
                                     ])
-                                    ->hidden(fn(Get $get) => $get('role') !== 'member'),
+                                    // ->hidden(fn(Get $get) => $get('role') !== 'member'),
+                                    ->visible(function (Get $get) use ($memberRoleId): bool {
+                                        // Check if the 'member' role ID is included in the array of selected role IDs
+                                        $selectedRoleIds = $get('roles');
+
+                                        // If the tutor role ID is null or no roles are selected, return false
+                                        if (!$memberRoleId || empty($selectedRoleIds)) {
+                                            return false;
+                                        }
+
+                                        // Return true if the member role ID is found in the selected IDs array
+                                        return in_array($memberRoleId, $selectedRoleIds);
+                                    })
 
                             ]),
 
@@ -177,10 +191,21 @@ class UserResource extends Resource
                                 // --- Membership Fields (Only shown if role == 'member') ---
                                 Section::make('Metadata & Status ✨')
                                     ->collapsed(false)
+                                    ->visible(function (Get $get) use ($memberRoleId): bool {
+                                        // Check if the 'member' role ID is included in the array of selected role IDs
+                                        $selectedRoleIds = $get('roles');
+
+                                        // If the tutor role ID is null or no roles are selected, return false
+                                        if (!$memberRoleId || empty($selectedRoleIds)) {
+                                            return false;
+                                        }
+
+                                        // Return true if the member role ID is found in the selected IDs array
+                                        return in_array($memberRoleId, $selectedRoleIds);
+                                    })
                                     ->schema([
                                         Placeholder::make('role_hint')
-                                            ->content('Membership details will be managed after creation.')
-                                            ->visible(fn(Get $get) => $get('role') !== 'member'),
+                                            ->content('Membership details will be managed after creation.'),
 
                                         // Only show actual fields if role is 'member'
                                         Grid::make(1)
@@ -298,7 +323,18 @@ class UserResource extends Resource
                                                     ->required(),
                                             ])
                                             ->columns(2)
-                                            ->visible(fn(Get $get) => $get('role') === 'member'),
+                                            ->visible(function (Get $get) use ($memberRoleId): bool {
+                                                // Check if the 'member' role ID is included in the array of selected role IDs
+                                                $selectedRoleIds = $get('roles');
+
+                                                // If the tutor role ID is null or no roles are selected, return false
+                                                if (!$memberRoleId || empty($selectedRoleIds)) {
+                                                    return false;
+                                                }
+
+                                                // Return true if the member role ID is found in the selected IDs array
+                                                return in_array($memberRoleId, $selectedRoleIds);
+                                            }),
                                     ]),
                                 // ->hidden(fn (Get $get) => $get('role') !== 'member'),
 
@@ -320,7 +356,18 @@ class UserResource extends Resource
                                             ->tel(),
                                         // ->required(fn (Get $get) => $get('role') === 'member'),
                                     ])
-                                    ->hidden(fn(Get $get) => $get('role') !== 'member'),
+                                    ->visible(function (Get $get) use ($memberRoleId): bool {
+                                        // Check if the 'member' role ID is included in the array of selected role IDs
+                                        $selectedRoleIds = $get('roles');
+
+                                        // If the tutor role ID is null or no roles are selected, return false
+                                        if (!$memberRoleId || empty($selectedRoleIds)) {
+                                            return false;
+                                        }
+
+                                        // Return true if the member role ID is found in the selected IDs array
+                                        return in_array($memberRoleId, $selectedRoleIds);
+                                    }),
 
 
 
@@ -459,9 +506,10 @@ class UserResource extends Resource
                     ->description(fn($record) => $record->email) // Puts email under the name
                     ->copyable() // Allows clicking to copy email
                     ->tooltip('Click to copy name'),
-                Tables\Columns\TextColumn::make('role')
+                Tables\Columns\TextColumn::make('roles')
+                    ->label('Roles')
+                    ->formatStateUsing(fn($state, $record) => $record->roles->pluck('name')->join(', '))
                     ->badge()
-                    ->sortable()
                     ->colors([
                         'admin' => 'danger',
                         'cashier' => 'warning',
@@ -472,7 +520,7 @@ class UserResource extends Resource
                     ->wrap()
                     ->extraAttributes(['class' => 'font-bold'])
                     ->icon(fn($record) => match ($record->role) {
-                        'admin' => 'heroicon-o-shield-check',
+                        'super-admin' => 'heroicon-o-shield-check',
                         'cashier' => 'heroicon-o-currency-dollar',
                         'member' => 'heroicon-o-user-group',
                         default => null,
@@ -482,26 +530,27 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('dob')
                     ->label('Date of Birth')
                     ->date()
-                    ->tooltip(fn($record): string => $record->dob->diffForHumans())
-                    ->sortable(),
+                    // ->tooltip(fn($record): string => $record->dob->diffForHumans())
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('gender')
-                ->badge()
-                ->colors([
-                    'info' => 'male',   
-                    'danger' => 'female', 
-                ])
-                ->icon(fn($record) => match($record->gender){
-                    'male'=>'heroicon-o-user',
-                    'female' =>'heroicon-o-user-plus',
-                    default => null,
-                }),
+                    ->badge()
+                    ->colors([
+                        'info' => 'male',
+                        'danger' => 'female',
+                    ])
+                    ->icon(fn($record) => match ($record->gender) {
+                        'male' => 'heroicon-o-user',
+                        'female' => 'heroicon-o-user-plus',
+                        default => null,
+                    }),
                 Tables\Columns\TextColumn::make('address')
                     ->searchable()
                     ->limit(20)
                     ->tooltip(fn($record) => $record->address),
                 Tables\Columns\TextColumn::make('phone')
-                ->label('Phone Number')    
-                ->searchable()
+                    ->label('Phone Number')
+                    ->searchable()
                     ->icon('heroicon-o-phone')
                     ->badge()
                     ->copyable()
@@ -517,15 +566,14 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->deferLoading() 
+            ->deferLoading()
             ->striped()
             ->filters([
-                SelectFilter::make('role')
-                    ->options([
-                        'admin' => 'Admin',
-                        'cashier' => 'Cashier',
-                        'member' => 'Member',
-                    ])
+                SelectFilter::make('roles')
+                    ->relationship('roles', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->label('Roles')
                     ->placeholder('All Roles'),
                 SelectFilter::make('gender')
                     ->options([
@@ -546,9 +594,9 @@ class UserResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                ->modalWidth('4xl') // Makes the popup size
+                    ->modalWidth('4xl') // Makes the popup size
                     ->tooltip('Quick Edit Users')
-                    ->slideOver() 
+                    ->slideOver()
                     ->modalHeading('Update User Profile')
                     ->modalDescription('Changes will be applied immediately to the User record.')
                     ->modalSubmitActionLabel('Save Changes')

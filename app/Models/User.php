@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -27,7 +28,9 @@ class User extends Authenticatable implements FilamentUser
     return in_array($this->email, $adminEmails) || $this->role === 'admin';
     }
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
+
+    protected $guard_name = 'web';
 
     /**
      * The attributes that are mass assignable.
@@ -104,4 +107,21 @@ class User extends Authenticatable implements FilamentUser
         return Str::of($this->name)->after(' ')->toString();
         
     }
+
+    // app/Models/User.php
+
+protected static function booted()
+{
+    static::created(function ($user) {
+        // If the user was created without any roles (like from the Member form)
+        if ($user->roles()->count() === 0) {
+            $user->assignRole('member');
+        }
+        
+        // Also sync your legacy string column for Flutter/Mobile consistency
+        if (!$user->role) {
+            $user->updateQuietly(['role' => 'member']);
+        }
+    });
+}
 }
