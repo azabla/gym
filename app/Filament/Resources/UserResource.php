@@ -511,20 +511,11 @@ class UserResource extends Resource
                     ->formatStateUsing(fn($state, $record) => $record->roles->pluck('name')->join(', '))
                     ->badge()
                     ->colors([
-                        'admin' => 'danger',
-                        'cashier' => 'warning',
-                        'member' => 'success',
-                    ])
-                    ->searchable()
-                    ->toggleable()
-                    ->wrap()
-                    ->extraAttributes(['class' => 'font-bold'])
-                    ->icon(fn($record) => match ($record->role) {
-                        'super-admin' => 'heroicon-o-shield-check',
-                        'cashier' => 'heroicon-o-currency-dollar',
-                        'member' => 'heroicon-o-user-group',
-                        default => null,
-                    }),
+                        'danger' => 'super_admin',
+                        'warning' => 'admin',
+                        'info' => 'cashier',
+                        'success' => 'member',
+                    ]),
                 Tables\Columns\TextColumn::make('username')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('dob')

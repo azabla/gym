@@ -3,23 +3,26 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
-use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
-
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Role;
 
 class CreateUser extends CreateRecord
 {
     protected static string $resource = UserResource::class;
 
-      // ✅ After saving, create or update the member
     protected function handleRecordCreation(array $data): Model
     {
-        // Log::debug('data_user', $data);
+        // Create the user
         $user = static::getModel()::create($data);
 
-        if ($data['role'] === 'member' && isset($data['member'])){
+        // Get the Member Role ID for comparison
+        $memberRoleId = Role::where('name', 'member')->value('id');
+
+        // Check if 'member' is one of the selected roles in the form
+        $selectedRoles = $data['roles'] ?? [];
+        
+        if (in_array($memberRoleId, $selectedRoles) && isset($data['member'])) {
             $user->member()->create($data['member']);
         }
         
