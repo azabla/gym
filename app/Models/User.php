@@ -98,20 +98,20 @@ class User extends Authenticatable
     }
 
 
-protected static function booted()
-{
-    static::created(function ($user) {
-        // Shield role assignment
-        if ($user->roles()->count() === 0) {
-            $user->assignRole('member');
-        }
+// protected static function booted()
+// {
+//     static::created(function ($user) {
+//         // Shield role assignment
+//         if ($user->roles()->count() === 0) {
+//             $user->assignRole('member');
+//         }
         
-    });
-}
+//     });
+// }
 
-// This creates a "virtual" role property so your API doesn't break
-public function getRoleAttribute()
-{
-    return $this->roles->first()?->name ?? 'member';
-}
+// // This creates a "virtual" role property so your API doesn't break
+// public function getRoleAttribute()
+// {
+//     return $this->roles->first()?->name ?? 'member';
+// }
 }

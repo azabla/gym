@@ -26,6 +26,8 @@ class Member extends Model
 
     protected $casts = [
         'starting_date' => 'datetime',
+        'valid_from' => 'date',
+        'valid_until' => 'date',
     ];
      public function user()
     {
@@ -51,7 +53,6 @@ public function getStatusAttribute($value)
     return $value ?: 'active';
 }
 
-// app/Models/Member.php
 
 public function isExpired(): bool
 {
