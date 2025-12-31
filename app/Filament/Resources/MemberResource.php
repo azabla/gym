@@ -134,11 +134,14 @@ class MemberResource extends Resource
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null),
-                                            TextInput::make('user.password')
+                                            TextInput::make('user.password')//avoid requiring password on edit and only hash/update if new value provided
                                                 ->password()
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-lock-closed')
-                                                ->default(null),
+                                                ->dehydrateStateUsing(fn($state) => filled($state) ? \Illuminate\Support\Facades\Hash::make($state) : null)
+                                                ->dehydrated(fn($state) => filled($state))
+                                                ->required(fn(string $context) => $context === 'create')  // Required only on create
+                                                ->helperText('Leave blank to keep current password.'),
                                         ]),
                                     ]),
                                 // --- Emergency Contact (Only for members) ---
@@ -344,6 +347,11 @@ class MemberResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('user');
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -521,12 +529,51 @@ class MemberResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->modalWidth('4xl') // Makes the popup size
                     ->tooltip('Quick Edit Member')
-                    ->slideOver() 
+                    ->slideOver()
                     ->modalHeading('Update Member Profile')
                     ->modalDescription('Changes will be applied immediately to the member record.')
                     ->modalSubmitActionLabel('Save Changes')
                     ->icon('heroicon-m-pencil-square')
-                    ->color('warning'),
+                    ->color('warning')
+                    ->mountUsing(function (Form $form, Member $record) {
+
+                        $data = $record->toArray();
+                        if ($record->user) {
+
+                            $data['user'] = $record->user->toArray();
+                        }
+                        $form->fill($data);
+                    })
+                    ->using(function (Member $record, array $data): Member {
+
+
+                        $record->update($data);  // Update main member
+            
+                        if (isset($data['user'])) {
+                            $userData = $data['user'];
+                            if ($record->user) {
+                                $record->user->update($userData);
+                            }
+                        }
+
+                        // Recalculate dates
+                        $package = Package::find($data['package_id'] ?? $record->package_id);
+                        if ($package) {
+                            $durationUnit = $package->duration_unit ?? 'month';
+                            $startingDate = $data['starting_date'] ?? $record->starting_date ?? Carbon::now()->toDateString();
+                            $duration = (int) ($data['duration_value'] ?? $record->duration_value ?? 1);
+
+                            $from = Carbon::parse($startingDate);
+                            $until = $from->copy()->add($duration, $durationUnit);
+
+                            $record->update([
+                                'valid_from' => $from->toDateString(),
+                                'valid_until' => $until->toDateString(),
+                            ]);
+                        }
+
+                        return $record;
+                    }),
                 // Add the automatic Pay action
                 Tables\Actions\Action::make('pay')
                     ->label('Pay')
@@ -793,7 +840,7 @@ class MemberResource extends Resource
         return [
             'index' => Pages\ListMembers::route('/'),
             'create' => Pages\CreateMember::route('/create'),
-            'edit' => Pages\EditMember::route('/{record}/edit'),
+            // 'edit' => Pages\EditMember::route('/{record}/edit'),
         ];
     }
 

@@ -121,12 +121,14 @@ class UserResource extends Resource
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null)
                                                 ->required(),
-                                            TextInput::make('password')
+                                            TextInput::make('password')//avoid requiring password on edit and only hash/update if new value provided
                                                 ->password()
                                                 ->prefixIcon('heroicon-o-lock-closed')
                                                 ->maxLength(255)
-                                                ->required()
-                                                ->default(null),
+                                                ->dehydrateStateUsing(fn($state) => filled($state) ? \Illuminate\Support\Facades\Hash::make($state) : null)
+                                                ->dehydrated(fn($state) => filled($state))
+                                                ->required(fn(string $context) => $context === 'create')  // Required only on create
+                                                ->helperText('Leave blank to keep current password.'),
                                             // TextInput::make('avatar')
                                             //     ->maxLength(255)
                                             //     ->default(null),
@@ -609,7 +611,7 @@ class UserResource extends Resource
                         Log::debug('Submitted update data: ' . json_encode($data));
 
                         $record->update($data);  // Update main user
-
+            
                         if (isset($data['member'])) {
                             $memberData = $data['member'];
                             $memberData['user_id'] = $record->id;
