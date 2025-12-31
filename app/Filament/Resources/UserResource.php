@@ -34,6 +34,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Group;
 use Spatie\Permission\Models\Role as SpatieRole;
+use Carbon\Carbon;
+
 
 class UserResource extends Resource
 {
@@ -119,12 +121,14 @@ class UserResource extends Resource
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null)
                                                 ->required(),
-                                            TextInput::make('password')
+                                            TextInput::make('password')//avoid requiring password on edit and only hash/update if new value provided
                                                 ->password()
                                                 ->prefixIcon('heroicon-o-lock-closed')
                                                 ->maxLength(255)
-                                                ->required()
-                                                ->default(null),
+                                                ->dehydrateStateUsing(fn($state) => filled($state) ? \Illuminate\Support\Facades\Hash::make($state) : null)
+                                                ->dehydrated(fn($state) => filled($state))
+                                                ->required(fn(string $context) => $context === 'create')  // Required only on create
+                                                ->helperText('Leave blank to keep current password.'),
                                             // TextInput::make('avatar')
                                             //     ->maxLength(255)
                                             //     ->default(null),
@@ -139,7 +143,8 @@ class UserResource extends Resource
                                                 ->label('Assign Roles')
                                                 ->columnSpanFull()
                                                 ->helperText('Select one or more roles for this user.')
-                                                ->live(),
+                                                ->live()
+                                                ->required(),
 
                                         ]),
 
@@ -511,20 +516,11 @@ class UserResource extends Resource
                     ->formatStateUsing(fn($state, $record) => $record->roles->pluck('name')->join(', '))
                     ->badge()
                     ->colors([
-                        'admin' => 'danger',
-                        'cashier' => 'warning',
-                        'member' => 'success',
-                    ])
-                    ->searchable()
-                    ->toggleable()
-                    ->wrap()
-                    ->extraAttributes(['class' => 'font-bold'])
-                    ->icon(fn($record) => match ($record->role) {
-                        'super-admin' => 'heroicon-o-shield-check',
-                        'cashier' => 'heroicon-o-currency-dollar',
-                        'member' => 'heroicon-o-user-group',
-                        default => null,
-                    }),
+                        'danger' => 'super_admin',
+                        'warning' => 'admin',
+                        'info' => 'cashier',
+                        'success' => 'member',
+                    ]),
                 Tables\Columns\TextColumn::make('username')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('dob')
@@ -594,14 +590,68 @@ class UserResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->modalWidth('4xl') // Makes the popup size
+                    ->modalWidth('5xl') // Makes the popup size
                     ->tooltip('Quick Edit Users')
                     ->slideOver()
                     ->modalHeading('Update User Profile')
                     ->modalDescription('Changes will be applied immediately to the User record.')
                     ->modalSubmitActionLabel('Save Changes')
                     ->icon('heroicon-m-pencil-square')
-                    ->color('warning'),
+                    ->color('warning')
+                    ->mountUsing(function (Form $form, Model $record) {  // Custom fill with nested member data
+                        Log::debug('mountUsing called for modal edit');
+                        $data = $record->toArray();
+                        if ($record->member) {
+                            Log::debug('Member data:', $record->member->toArray());
+                            $data['member'] = $record->member->toArray();
+                        }
+                        $form->fill($data);
+                    })
+                    ->using(function (Model $record, array $data): Model {  // Custom update with nested member and recalc
+                        Log::debug('Submitted update data: ' . json_encode($data));
+
+                        $record->update($data);  // Update main user
+            
+                        if (isset($data['member'])) {
+                            $memberData = $data['member'];
+                            $memberData['user_id'] = $record->id;
+
+                            try {
+                                // Recalculate dates
+                                $package = Package::find($memberData['package_id'] ?? null);
+                                if (!$package) {
+                                    Log::warning('Package not found for ID: ' . ($memberData['package_id'] ?? 'null') . ' - Using default month unit');
+                                }
+                                $durationUnit = $package ? ($package->duration_unit ?? 'month') : 'month';
+                                $startingDate = $memberData['starting_date'] ?? Carbon::now()->toDateString();
+                                $duration = (int) ($memberData['duration_value'] ?? 1);
+
+                                $from = Carbon::parse($startingDate);
+                                $until = $from->copy()->add($duration, $durationUnit);
+
+                                $memberData['valid_from'] = $from->toDateString();
+                                $memberData['valid_until'] = $until->toDateString();
+
+                                Log::debug('Final member data before update/create: ' . json_encode($memberData));
+
+                                if ($record->member) {
+                                    $record->member->update($memberData);
+                                } else {
+                                    $record->member()->create($memberData);
+                                }
+                            } catch (\Exception $e) {
+                                Log::error('Member update/create failed: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+                            }
+                        } elseif ($record->member) {
+                            try {
+                                $record->member->delete();
+                            } catch (\Exception $e) {
+                                Log::error('Member delete failed: ' . $e->getMessage());
+                            }
+                        }
+
+                        return $record;
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

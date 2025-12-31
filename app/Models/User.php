@@ -13,20 +13,9 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable 
 {
-    public function canAccessPanel(Panel $panel): bool
-    {
-         // Allow multiple admin emails
-    $adminEmails = [
-        'admin@example.com',
-        'admin@gym.com', 
-        'your-email@gmail.com' // Add your actual email
-    ];
     
-    // OR check by role
-    return in_array($this->email, $adminEmails) || $this->role === 'admin';
-    }
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
 
@@ -38,7 +27,7 @@ class User extends Authenticatable implements FilamentUser
      * @var list<string>
      */
     protected $fillable = [
-        'role',
+        
         'name',
         'username',
         'email',
@@ -108,20 +97,21 @@ class User extends Authenticatable implements FilamentUser
         
     }
 
-    // app/Models/User.php
 
-protected static function booted()
-{
-    static::created(function ($user) {
-        // If the user was created without any roles (like from the Member form)
-        if ($user->roles()->count() === 0) {
-            $user->assignRole('member');
-        }
+// protected static function booted()
+// {
+//     static::created(function ($user) {
+//         // Shield role assignment
+//         if ($user->roles()->count() === 0) {
+//             $user->assignRole('member');
+//         }
         
-        // Also sync your legacy string column for Flutter/Mobile consistency
-        if (!$user->role) {
-            $user->updateQuietly(['role' => 'member']);
-        }
-    });
-}
+//     });
+// }
+
+// // This creates a "virtual" role property so your API doesn't break
+// public function getRoleAttribute()
+// {
+//     return $this->roles->first()?->name ?? 'member';
+// }
 }
