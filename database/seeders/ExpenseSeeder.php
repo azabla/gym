@@ -36,7 +36,7 @@ class ExpenseSeeder extends Seeder
         }
 
         // Get admin user
-        $user = User::where('role', 'admin')->first();
+        $user = User::role('super_admin')->first();
         
         if (!$user) {
             $this->command->error('No admin user found! Please create a user with role="admin" first.');

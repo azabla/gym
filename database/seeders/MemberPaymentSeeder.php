@@ -19,7 +19,7 @@ class MemberPaymentSeeder extends Seeder
 
         // 1. Create 50 users with role "member"
         $users = User::factory()->count(50)->create([
-            'role' => 'member',
+            // 'role' => 'member',
         ]);
 
         // 2. Randomly pick 30 users to become members

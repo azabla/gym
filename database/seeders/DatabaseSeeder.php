@@ -13,6 +13,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 1. Create Roles FIRST
+        $this->call(ShieldSeeder::class);
         // Call individual seeders
         $this->call([
             UserSeeder::class,

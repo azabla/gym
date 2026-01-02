@@ -7,28 +7,26 @@ use App\Models\Package;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Member>
- */
 class MemberFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
-        // Pick a random user (or create one if none exists)
-        $user = User::where('role', 'member')->inRandomOrder()->first() ?? User::factory()->create(['role' => 'member']);
+        // 1. Find a user who HAS the 'member' role via Shield/Spatie
+        // If none exist, create a new user.
+        $user = User::role('member')->inRandomOrder()->first() 
+                ?? User::factory()->create();
 
-        // Optionally pick a package (or leave null)
+        // 2. Ensure the user definitely has the role (in case a new one was created)
+        if (!$user->hasRole('member')) {
+            $user->assignRole('member');
+        }
+
         $package = Package::inRandomOrder()->first() ?? Package::factory()->create();
 
-        // Define realistic start/validity dates
         $start = $this->faker->dateTimeBetween('-3 year', 'now');
         $validFrom = $start;
         $validUntil = (clone $validFrom)->modify('+6 months');
+
         return [
             'user_id'                 => $user->id,
             'package_id'              => $package->id,
@@ -43,18 +41,18 @@ class MemberFactory extends Factory
         ];
     }
 
-     public function configure()
+    public function configure()
     {
         return $this->afterCreating(function (Member $member) {
-        
             $unit = $member->package->duration_unit ?? 'month';
-            // Set the payment's valid_from and valid_until to match the payments's dates
+            
             $member->update([
                 'duration_value' => match ($unit) {
-                'day'   => $this->faker->numberBetween(1, 30),
-                'week'  => $this->faker->numberBetween(1, 4),
-                'month' => $this->faker->numberBetween(1, 12),
-                'year'  => $this->faker->numberBetween(1, 5),
+                    'day'   => $this->faker->numberBetween(1, 30),
+                    'week'  => $this->faker->numberBetween(1, 4),
+                    'month' => $this->faker->numberBetween(1, 12),
+                    'year'  => $this->faker->numberBetween(1, 5),
+                    default => 1,
                 },
             ]);
         });

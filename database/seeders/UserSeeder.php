@@ -13,18 +13,19 @@ class UserSeeder extends Seeder
      * Run the database seeds.
      */
     public function run(): void
-    {User::factory()->create([
+    {$user = User::factory()->create([
             'name' => 'Admin User',
             
         // Create Admin User
         'email' => 'admin@example.com',
-            'role' => 'admin',
+            // 'role' => 'admin',
             'password' => Hash::make('password123'), 
-        ]);
 
-        // Create Cashiers
-        User::factory()->count(2)->create([
-            'role' => 'cashier',
         ]);
+        $user->assignRole('super_admin');
+        // Create Cashiers
+        // User::factory()->count(2)->create([
+        //     'role' => 'cashier',
+        // ]);
     }
 }
