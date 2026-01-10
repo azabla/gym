@@ -27,5 +27,7 @@ class UserSeeder extends Seeder
         // User::factory()->count(2)->create([
         //     'role' => 'cashier',
         // ]);
+
+        //testing ssh
     }
 }
