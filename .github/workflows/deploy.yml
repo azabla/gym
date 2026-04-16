@@ -68,6 +68,8 @@ jobs:
             **/tests/**
             storage/logs/*
             storage/debugbar/*
+            bootstrap/cache/*.php  # <--- CRITICAL: Exclude cached files
+            public/storage         # Recommended: don't overwrite user uploads
             *.sql
             *.log
             .env.example
