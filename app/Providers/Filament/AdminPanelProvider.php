@@ -25,8 +25,8 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
-            ->id('admin')
-            ->path('admin')
+            ->id('gym')
+            ->path('gym')
             ->login()
             ->colors([
             'danger' => Color::Red,
@@ -36,6 +36,7 @@ class AdminPanelProvider extends PanelProvider
             'success' => Color::Emerald,
             'warning' => Color::Orange,
             ])
+            ->registration() // <--- ADD THIS LINE
             ->font('Inter') // font family
             ->brandName('OURS-GYM') // logo name
             ->favicon(asset('images/favicon.png')) // favicon path

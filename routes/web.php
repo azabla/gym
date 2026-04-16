@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Volt\Volt;
 
+
+
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
@@ -20,4 +22,7 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
 
-require __DIR__.'/auth.php';
+Route::redirect('/login', '/gym/login')->name('login');
+Route::redirect('/register', '/gym/register')->name('register');
+
+// require __DIR__.'/auth.php';
