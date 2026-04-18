@@ -126,7 +126,7 @@ class MemberResource extends Resource
                                                 ->unique(
                                                     table: 'users',
                                                     column: 'username',
-                                                    ignoreRecord: true, // Important to ignore current record on edit
+                                                    ignorable: fn (?Model $record) => $record?->user, // Important to ignore current record on edit
                                                 )
                                                 ->rule(function (Get $get) {
                                                     $userId = $get('user.id');
@@ -140,7 +140,7 @@ class MemberResource extends Resource
                                                 ->unique(
                                                     table: 'users',
                                                     column: 'email',
-                                                    ignoreRecord: true,
+                                                    ignorable: fn (?Model $record) => $record?->user,
                                                 )
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null),
@@ -358,9 +358,10 @@ class MemberResource extends Resource
     }
 
     public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()->with('user');
-    }
+{
+    // Add 'package' to the with() array
+    return parent::getEloquentQuery()->with(['user', 'package']);
+}
 
     public static function table(Table $table): Table
     {
