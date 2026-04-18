@@ -123,6 +123,11 @@ class MemberResource extends Resource
                                             Hidden::make('user.id'),
                                             TextInput::make('user.username')
                                                 ->required()
+                                                ->unique(
+                                                    table: 'users',
+                                                    column: 'username',
+                                                    ignoreRecord: true, // Important to ignore current record on edit
+                                                )
                                                 ->rule(function (Get $get) {
                                                     $userId = $get('user.id');
                                                     return Rule::unique('users', 'username')->ignore($userId);
@@ -132,6 +137,11 @@ class MemberResource extends Resource
                                             TextInput::make('user.email')
                                                 ->email()
                                                 ->maxLength(255)
+                                                ->unique(
+                                                    table: 'users',
+                                                    column: 'email',
+                                                    ignoreRecord: true,
+                                                )
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null),
                                             TextInput::make('user.password')//avoid requiring password on edit and only hash/update if new value provided

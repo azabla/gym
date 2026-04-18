@@ -120,6 +120,9 @@ class UserResource extends Resource
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null)
+                                                ->unique(
+                                                    ignoreRecord: true,
+                                                )
                                                 ->required(),
                                             TextInput::make('password')//avoid requiring password on edit and only hash/update if new value provided
                                                 ->password()
