@@ -73,8 +73,6 @@ jobs:
             *.sql
             *.log
             .env.example
-            composer.json
-            composer.lock
             package*.json
             *.md
         
