@@ -41,11 +41,11 @@ jobs:
           APP_ENV=production
           APP_KEY=${{ secrets.APP_KEY }}
           APP_DEBUG=false
-          APP_URL=https://a.ethomadic.com
-          ASSET_URL=https://a.ethomadic.com
+          APP_URL=https://amirgym.infinityfreeapp.com
+          ASSET_URL=https://amirgym.infinityfreeapp.com
 
           DB_CONNECTION=mysql
-          DB_HOST=localhost
+          DB_HOST=sql100.infinityfree.com
           DB_PORT=3306
           DB_DATABASE=${{ secrets.DB_DATABASE }}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
@@ -60,7 +60,7 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: /
+          server-dir: /htdocs/
           exclude: |
             **/.git*
             **/.git*/**
