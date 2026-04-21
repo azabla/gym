@@ -6,7 +6,7 @@ use Livewire\Volt\Volt;
 
 Route::get('/run-migrations/{password}', function ($password) {
     // Replace 'mysecret123' with a password of your choice
-    if ($password !== 'secret123o') {
+    if ($password !== 'secret123') {
         return response('Unauthorized.', 403);
     }
 
