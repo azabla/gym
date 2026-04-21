@@ -28,6 +28,8 @@ class Member extends Model
         'starting_date' => 'datetime',
         'valid_from' => 'date',
         'valid_until' => 'date',
+        'status' => 'string',
+        'emergency_contact_phone' => 'string'
     ];
      public function user()
     {
@@ -45,13 +47,13 @@ class Member extends Model
     }
 
     // method to get the current status
-public function getStatusAttribute($value)
-{
-    if ($this->valid_until && Carbon::parse($this->valid_until)->isPast()) {
-        return 'expired';
-    }
-    return $value ?: 'active';
-}
+// public function getStatusAttribute($value)
+// {
+//     if ($this->valid_until && Carbon::parse($this->valid_until)->isPast()) {
+//         return 'expired';
+//     }
+//     return $value ?: 'active';
+// }
 
 
 public function isExpired(): bool

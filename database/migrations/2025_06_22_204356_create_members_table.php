@@ -19,7 +19,7 @@ return new class extends Migration
             $table->date('starting_date')->nullable(); // Date when the membership starts
             $table->date('valid_from')->nullable(); // Date when the membership is valid from
             $table->date('valid_until')->nullable(); // Date when the membership expires
-            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active'); // active, inactive, suspended, etc.
+            $table->enum('status', ['active', 'inactive', 'expired', 'suspended'])->default('active'); // active, inactive, suspended, etc.
             $table->string('emergency_contact_name')->nullable(); // Name of the emergency contact
             $table->string('emergency_contact_phone')->nullable(); // Phone number of the emergency contact
             $table->string('membership_id')->unique(); // Unique membership ID for the member

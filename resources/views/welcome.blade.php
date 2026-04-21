@@ -36,7 +36,7 @@
             <!-- Auth Buttons -->
             <div class="flex items-center gap-4">
                 @auth
-                    <a href="{{ url('/dashboard') }}" class="px-5 py-2.5 text-sm font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition shadow-lg shadow-orange-900/20">
+                    <a href="{{ url('/amdin') }}" class="px-5 py-2.5 text-sm font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition shadow-lg shadow-orange-900/20">
                         Dashboard
                     </a>
                 @else

@@ -49,7 +49,7 @@ use Filament\Forms\Components\Group;
 
 
 use App\Models\Package;
-
+use Illuminate\Support\Facades\Log;
 
 class MemberResource extends Resource
 {
@@ -322,7 +322,7 @@ class MemberResource extends Resource
                                             ->options([
                                                 'active' => 'Active',
                                                 'inactive' => 'Inactive',
-                                                'suspended' => 'Suspended',
+                                                'expired' => 'Expired',
                                             ])
                                             ->native(false)
                                             ->prefixIcon(function (string $state): string {
@@ -424,7 +424,7 @@ class MemberResource extends Resource
 
                         'active' => 'success',
                         'inactive' => 'danger',
-                        'suspended' => 'warning',
+                        // 'suspended' => 'warning',
                         'expired' => 'gray',
                         default => 'primary'
                     }),
@@ -463,7 +463,7 @@ class MemberResource extends Resource
                     ->options([
                         'active' => 'Active',
                         'inactive' => 'Inactive',
-                        'suspended' => 'Suspended',
+                        'expired' => 'expired',
                     ])->label('Status'),
                 TernaryFilter::make('is_expired')
                     ->label('Expired')
@@ -537,6 +537,9 @@ class MemberResource extends Resource
                     ->color('warning')
                     ->mountUsing(function (Form $form, Member $record) {
 
+
+                        
+
                         $data = $record->toArray();
                         if ($record->user) {
 
@@ -545,15 +548,29 @@ class MemberResource extends Resource
                         $form->fill($data);
                     })
                     ->using(function (Member $record, array $data): Member {
+                        Log::info('Update data:', $data); // See what's being passed
 
+                        Log::info('Status value debug:', [
+                            'status_value' => $data['status'] ?? null,
+                            'status_type' => gettype($data['status'] ?? null),
+                            'status_json' => json_encode($data['status'] ?? null),
+                            'full_data_keys' => array_keys($data),
+
+                            'phone_value' => $data['emergency_contact_phone'] ?? null,
+                            'phone_type' => gettype($data['emergency_contact_phone'] ?? null),
+                            'phone_json' => json_encode($data['emergency_contact_phone'] ?? null),
+                        ]);
+
+                        $userData = $data['user'] ?? null;
+
+                        unset($data['user']);
 
                         $record->update($data);  // Update main member
             
-                        if (isset($data['user'])) {
-                            $userData = $data['user'];
-                            if ($record->user) {
+                        if ($userData && $record->user) {
+                            
                                 $record->user->update($userData);
-                            }
+                           
                         }
 
                         // Recalculate dates
