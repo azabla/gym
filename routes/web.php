@@ -22,7 +22,7 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
 
-Route::redirect('/login', '/gym/login')->name('login');
-Route::redirect('/register', '/gym/register')->name('register');
+Route::redirect('/login', '/admin/login')->name('login');
+Route::redirect('/register', '/admin/register')->name('register');
 
 // require __DIR__.'/auth.php';
