@@ -20,6 +20,12 @@ class Payment extends Model
         'valid_until',
         'notes',
         'status',
+        // 'duration_value',     
+        'addons',
+    ];
+
+    protected $casts = [
+        'addons' => 'array',
     ];
     
     // public function user()

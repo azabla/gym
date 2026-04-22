@@ -114,4 +114,10 @@ class User extends Authenticatable
 // {
 //     return $this->roles->first()?->name ?? 'member';
 // }
+
+public function addons()
+    {
+        return $this->member?->addons();
+    }
+
 }

@@ -73,4 +73,11 @@ public function getExpiryStatus(): string
     return 'Expires on ' . $expiry->format('Y-m-d');
 }
 
+public function addons()
+{
+    return $this->belongsToMany(Addon::class, 'member_addon')
+                ->withPivot('starts_at', 'ends_at')
+                ->withTimestamps();
+}
+
 }
