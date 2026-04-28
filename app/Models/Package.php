@@ -64,4 +64,11 @@ class Package extends Model
         }
     }
 
+    public function addons()
+    {
+        return $this->belongsToMany(Addon::class, 'package_addon')
+                    ->withPivot('price_override')
+                    ->withTimestamps();
+    }
+
 }

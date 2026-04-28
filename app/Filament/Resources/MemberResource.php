@@ -123,6 +123,11 @@ class MemberResource extends Resource
                                             Hidden::make('user.id'),
                                             TextInput::make('user.username')
                                                 ->required()
+                                                ->unique(
+                                                    table: 'users',
+                                                    column: 'username',
+                                                    ignorable: fn(?Model $record) => $record?->user, // Important to ignore current record on edit
+                                                )
                                                 ->rule(function (Get $get) {
                                                     $userId = $get('user.id');
                                                     return Rule::unique('users', 'username')->ignore($userId);
@@ -132,6 +137,11 @@ class MemberResource extends Resource
                                             TextInput::make('user.email')
                                                 ->email()
                                                 ->maxLength(255)
+                                                ->unique(
+                                                    table: 'users',
+                                                    column: 'email',
+                                                    ignorable: fn(?Model $record) => $record?->user,
+                                                )
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null),
                                             TextInput::make('user.password')//avoid requiring password on edit and only hash/update if new value provided
@@ -275,6 +285,11 @@ class MemberResource extends Resource
                                                     outputUntilPath: 'valid_until'
                                                 );
                                             }),
+
+                                        Forms\Components\CheckboxList::make('addons')
+                                            ->label('Member Addons / Extras')
+                                            ->relationship('addons', 'name')
+                                            ->columnSpanFull(),
                                     ]),
 
                                 Section::make('Validity Period 📅')
@@ -349,7 +364,8 @@ class MemberResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('user');
+        // Add 'package' to the with() array
+        return parent::getEloquentQuery()->with(['user', 'package']);
     }
 
     public static function table(Table $table): Table
@@ -592,17 +608,18 @@ class MemberResource extends Resource
                         return $record;
                     }),
                 // Add the automatic Pay action
+                // HYBRID ADDONS 
                 Tables\Actions\Action::make('pay')
                     ->label('Pay')
                     ->icon('heroicon-o-credit-card')
                     ->color('primary')
-                    ->slideOver() // Makes it a sidebar instead of a center modal
+                    ->slideOver()
                     ->modalHeading('Process Payment')
                     ->modalDescription('Review and adjust payment details before processing.')
                     ->modalSubmitActionLabel('Confirm Payment')
                     ->form([
                         Section::make('Subscription Details 📝')
-                            ->description('Select their desired package.')
+                            ->description('Select package and any addons/extras.')
                             ->schema([
                                 Forms\Components\Select::make('package_id')
                                     ->label('Package')
@@ -611,30 +628,8 @@ class MemberResource extends Resource
                                     ->searchable()
                                     ->live()
                                     ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                        // Recalculate amount and unit when package changes
-                                        $packageId = $get('package_id');
-                                        if ($packageId) {
-                                            $package = Package::find($packageId);
-                                            $duration = (int) $get('duration_value');
-
-                                            // Update price
-                                            $set('amount', $package->price * $duration);
-
-                                            // Recalculate End Date
-                                            $validFrom = $get('valid_from');
-                                            if ($validFrom) {
-                                                $unit = $package->duration_unit ?? 'month';
-                                                $until = \Carbon\Carbon::parse($validFrom);
-                                                match ($unit) {
-                                                    'day' => $until->addDays($duration),
-                                                    'week' => $until->addWeeks($duration),
-                                                    'month' => $until->addMonths($duration),
-                                                    'year' => $until->addYears($duration),
-                                                    default => $until->addMonths($duration),
-                                                };
-                                                $set('valid_until', $until->format('Y-m-d'));
-                                            }
-                                        }
+                                        $set('addons', []); // reset when package changes
+                                        self::calculateTotalAmount($set, $get);
                                     }),
 
                                 Forms\Components\TextInput::make('duration_value')
@@ -644,38 +639,27 @@ class MemberResource extends Resource
                                     ->minValue(1)
                                     ->required()
                                     ->live()
-                                    ->suffix(
-                                        fn(Forms\Get $get) =>
-                                        $get('package_id') ?
-                                        Package::find($get('package_id'))->duration_unit :
-                                        'Unit'
-                                    )
-                                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                        // Recalculate amount and dates when duration changes
+                                    ->suffix(fn(Forms\Get $get) => $get('package_id')
+                                        ? Package::find($get('package_id'))?->duration_unit ?? 'Unit'
+                                        : 'Unit')
+                                    ->afterStateUpdated(fn(Forms\Set $set, Forms\Get $get) => self::calculateTotalAmount($set, $get)),
+
+                                // ADDONS CHECKBOXLIST (reliable pre-check) 
+                                Forms\Components\CheckboxList::make('addons')
+                                    ->label('Addons / Extras')
+                                    ->options(function (Forms\Get $get) {
                                         $packageId = $get('package_id');
-                                        if ($packageId) {
-                                            $package = Package::find($packageId);
-                                            $duration = (int) $get('duration_value');
-
-                                            // Update Price
-                                            $set('amount', $package->price * $duration);
-
-                                            // Update Date
-                                            $validFrom = $get('valid_from');
-                                            if ($validFrom) {
-                                                $unit = $package->duration_unit ?? 'month';
-                                                $until = \Carbon\Carbon::parse($validFrom);
-                                                match ($unit) {
-                                                    'day' => $until->addDays($duration),
-                                                    'week' => $until->addWeeks($duration),
-                                                    'month' => $until->addMonths($duration),
-                                                    'year' => $until->addYears($duration),
-                                                    default => $until->addMonths($duration),
-                                                };
-                                                $set('valid_until', $until->format('Y-m-d'));
-                                            }
-                                        }
-                                    }),
+                                        if (!$packageId)
+                                            return [];
+                                        $package = Package::with('addons')->find($packageId);
+                                        return $package?->addons->pluck('name', 'id')->toArray() ?? [];
+                                    })
+                                    ->live()
+                                    ->afterStateUpdated(fn(Forms\Set $set, Forms\Get $get) => self::calculateTotalAmount($set, $get))
+                                    ->afterStateHydrated(fn(Forms\Set $set, Forms\Get $get) => self::calculateTotalAmount($set, $get))  // FIXES INITIAL LOAD
+                                    ->columnSpanFull()
+                                    ->visible(fn(Forms\Get $get) => (bool) $get('package_id')),
+                                
                             ])->columns(2),
 
                         Section::make('Payment & Dates 💰')
@@ -689,10 +673,7 @@ class MemberResource extends Resource
                                     ->required(),
 
                                 Forms\Components\Select::make('payment_method')
-                                    ->options([
-                                        'cash' => 'Cash',
-                                        'online' => 'Online',
-                                    ])
+                                    ->options(['cash' => 'Cash', 'online' => 'Online'])
                                     ->default('cash')
                                     ->required(),
 
@@ -701,26 +682,7 @@ class MemberResource extends Resource
                                     ->required()
                                     ->native(false)
                                     ->live()
-                                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                        // Recalculate valid_until if the start date is manually changed
-                                        $packageId = $get('package_id');
-                                        $duration = (int) $get('duration_value');
-                                        $validFrom = $get('valid_from');
-
-                                        if ($packageId && $validFrom) {
-                                            $package = Package::find($packageId);
-                                            $unit = $package->duration_unit ?? 'month';
-                                            $until = \Carbon\Carbon::parse($validFrom);
-                                            match ($unit) {
-                                                'day' => $until->addDays($duration),
-                                                'week' => $until->addWeeks($duration),
-                                                'month' => $until->addMonths($duration),
-                                                'year' => $until->addYears($duration),
-                                                default => $until->addMonths($duration),
-                                            };
-                                            $set('valid_until', $until->format('Y-m-d'));
-                                        }
-                                    }),
+                                    ->afterStateUpdated(fn(Forms\Set $set, Forms\Get $get) => self::calculateValidUntil($set, $get)),
 
                                 Forms\Components\DatePicker::make('valid_until')
                                     ->label('Valid Until')
@@ -733,47 +695,48 @@ class MemberResource extends Resource
                                     ->columnSpanFull(),
                             ])->columns(4),
                     ])
-                    // Pre-fill the form with Member data
+
                     ->mountUsing(function (Forms\ComponentContainer $form, Member $record) {
-                        // Calculate logic for start date (Logic taken from PaymentResource)
                         $validFrom = now()->format('Y-m-d');
                         if ($record->valid_until) {
-                            $expiryDate = \Carbon\Carbon::parse($record->valid_until)->endOfDay();
-                            $today = now()->startOfDay();
-                            if ($expiryDate->greaterThan($today)) {
-                                $validFrom = $expiryDate->addDay()->format('Y-m-d');
+                            $expiry = Carbon::parse($record->valid_until)->endOfDay();
+                            if ($expiry->greaterThan(now()->startOfDay())) {
+                                $validFrom = $expiry->addDay()->format('Y-m-d');
                             }
                         }
-
-                        // Calculate End Date
+                    
                         $package = $record->package;
                         $duration = $record->duration_value ?: 1;
-                        $validUntil = \Carbon\Carbon::parse($validFrom);
-
+                    
+                        $validUntil = $package
+                            ? self::calculateCoreValidUntil(Carbon::parse($validFrom), $package, $duration)
+                            : Carbon::parse($validFrom)->addMonth();
+                    
+                        // RELIABLE PRE-SELECTION 
+                        $preSelected = [];
                         if ($package) {
-                            $unit = $package->duration_unit ?? 'month';
-                            match ($unit) {
-                                'day' => $validUntil->addDays($duration),
-                                'week' => $validUntil->addWeeks($duration),
-                                'month' => $validUntil->addMonths($duration),
-                                'year' => $validUntil->addYears($duration),
-                                default => $validUntil->addMonths($duration),
-                            };
-                        } else {
-                            $validUntil->addMonth();
+                            $packageAddonIds = $package->addons->pluck('id')->toArray();
+                            $memberAddonIds = $record->addons->pluck('id')->toArray();
+                            $preSelected = array_intersect($packageAddonIds, $memberAddonIds);
                         }
-
+                    
+                        //CALCULATE TOTAL WITH ADDONS
+                        $packageAmount = $package ? ($package->price * $duration) : 0;
+                        $addonAmount = self::calculateAddonTotal($preSelected, $duration);
+                        $initialTotalAmount = $packageAmount + $addonAmount;
+                    
                         $form->fill([
                             'package_id' => $record->package_id,
                             'duration_value' => $duration,
-                            'amount' => $package ? ($package->price * $duration) : 0,
+                            'amount' => $initialTotalAmount, // Uses the combined total here
                             'payment_method' => 'cash',
                             'valid_from' => $validFrom,
                             'valid_until' => $validUntil->format('Y-m-d'),
+                            'addons' => $preSelected,
                         ]);
                     })
+
                     ->action(function (Member $record, array $data) {
-                        // Process the payment with the DATA from the FORM, not just the record defaults
                         $payment = Payment::create([
                             'member_id' => $record->id,
                             'package_id' => $data['package_id'],
@@ -785,18 +748,22 @@ class MemberResource extends Resource
                             'transaction_id' => 'TXN-' . strtoupper(Str::random(8)),
                             'status' => 'completed',
                             'duration_value' => $data['duration_value'],
+                            'addons' => $data['addons'] ?? [],
                             'notes' => $data['notes'] ?? 'Manual payment via Member Table',
                         ]);
 
-                        // Payment model observer (booted method) handles updating the Member
-                        // automatically when a 'completed' payment is created. 
-                        // But if want it to be explicit uncomment this
-            
                         $record->update([
                             'valid_until' => $data['valid_until'],
                             'status' => 'active',
                         ]);
 
+                        // Sync recurring addons back to member profile
+                        if (!empty($data['addons'])) {
+                            $recurring = \App\Models\Addon::whereIn('id', $data['addons'])
+                                ->where('is_recurring', true)
+                                ->pluck('id');
+                            $record->addons()->syncWithoutDetaching($recurring);
+                        }
 
                         Notification::make()
                             ->title('Payment Processed')
@@ -804,6 +771,7 @@ class MemberResource extends Resource
                             ->success()
                             ->send();
                     }),
+
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

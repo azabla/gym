@@ -35,6 +35,7 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Group;
 use Spatie\Permission\Models\Role as SpatieRole;
 use Carbon\Carbon;
+use Filament\Forms\Components\CheckboxList;
 
 
 class UserResource extends Resource
@@ -120,6 +121,9 @@ class UserResource extends Resource
                                                 ->maxLength(255)
                                                 ->prefixIcon('heroicon-o-envelope')
                                                 ->default(null)
+                                                ->unique(
+                                                    ignoreRecord: true,
+                                                )
                                                 ->required(),
                                             TextInput::make('password')//avoid requiring password on edit and only hash/update if new value provided
                                                 ->password()
@@ -360,6 +364,28 @@ class UserResource extends Resource
                                             ->label('Phone')
                                             ->tel(),
                                         // ->required(fn (Get $get) => $get('role') === 'member'),
+                                        CheckboxList::make('addons')
+                                        ->label('Active Addons / Extras')
+                                        ->options(function (Get $get) {
+                                            $packageId = $get('member.package_id');
+                                            if (!$packageId) return [];
+                                            return Package::find($packageId)?->addons->pluck('name', 'id')->toArray() ?? [];
+                                        })
+                                        ->descriptions(function (Get $get) {
+                                            $packageId = $get('member.package_id');
+                                            if (!$packageId) return [];
+                                            return Package::find($packageId)?->addons->mapWithKeys(function ($addon) {
+                                                return [$addon->id => "Price: {$addon->price} Birr" . ($addon->is_recurring ? " (Recurring)" : "")];
+                                            })->toArray() ?? [];
+                                        })
+                                        ->formatStateUsing(function (Model $record) {
+                                            return $record->member?->addons->pluck('id')->toArray() ?? [];
+                                        })
+                                        ->columns(2)
+                                        ->gridDirection('column')
+                                        ->columnSpanFull()
+                                        ->visible(fn(Get $get) => (bool) $get('member.package_id'))
+                                        ->dehydrated(true),
                                     ])
                                     ->visible(function (Get $get) use ($memberRoleId): bool {
                                         // Check if the 'member' role ID is included in the array of selected role IDs

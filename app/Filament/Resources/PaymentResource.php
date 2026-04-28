@@ -64,9 +64,28 @@ class PaymentResource extends Resource
                                 ->required()
                                 ->live()
                                 ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                    // Auto-fill member's package and addons when member is selected
+                                    if ($state) {
+                                        $member = Member::with(['addons', 'package.addons'])->find($state);
+                                        if ($member) {
+                                            $set('package_id', $member->package_id);
+                                            $set('duration_value', $member->duration_value ?: 1);
+                                            
+                                            // Pre-select addons the member currently has
+                                            if ($member->package_id && $member->package) {
+                                                $packageAddonIds = $member->package->addons->pluck('id')->toArray();
+                                                $memberAddonIds = $member->addons->pluck('id')->toArray();
+                                                $preSelected = array_intersect($packageAddonIds, $memberAddonIds);
+                                                $set('addons', array_values($preSelected));
+                                            } else {
+                                                $set('addons', []);
+                                            }
+                                        }
+                                    }
+
                                     self::determineValidFromDate($set, $get);
                                     self::calculateValidUntil($set, $get);
-                                    self::calculateAmount($set, $get);
+                                    self::calculateTotalAmount($set, $get); // Use total amount to include addons
                                 })
                                 ->helperText(
                                     fn(Forms\Get $get) =>
@@ -83,11 +102,10 @@ class PaymentResource extends Resource
                                 ->live()
                                 // to calculate amount and dates when package changes
                                 ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                    $set('addons', []); // Reset addons when package changes
                                     self::determineValidFromDate($set, $get);
-                                    // date calculation
                                     self::calculateValidUntil($set, $get);
-                                    // amount calculation
-                                    self::calculateAmount($set, $get);
+                                    self::calculateTotalAmount($set, $get);
                                 }),
 
                             Forms\Components\TextInput::make('duration_value')
@@ -106,8 +124,23 @@ class PaymentResource extends Resource
                                 ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
                                     self::determineValidFromDate($set, $get);
                                     self::calculateValidUntil($set, $get);
-                                    self::calculateAmount($set, $get);
+                                    self::calculateTotalAmount($set, $get);
                                 }),
+
+                            // Addons Checkbox List for Payment creation
+                            Forms\Components\CheckboxList::make('addons')
+                                ->label('Addons / Extras')
+                                ->options(function (Forms\Get $get) {
+                                    $packageId = $get('package_id');
+                                    if (!$packageId) return [];
+                                    $package = Package::with('addons')->find($packageId);
+                                    return $package?->addons->pluck('name', 'id')->toArray() ?? [];
+                                })
+                                ->live()
+                                ->afterStateUpdated(fn(Forms\Set $set, Forms\Get $get) => self::calculateTotalAmount($set, $get))
+                                ->afterStateHydrated(fn(Forms\Set $set, Forms\Get $get) => self::calculateTotalAmount($set, $get))
+                                ->columnSpanFull()
+                                ->visible(fn(Forms\Get $get) => (bool) $get('package_id')),
 
                         ]),
                     Section::make('Payment & Dates 💰')
