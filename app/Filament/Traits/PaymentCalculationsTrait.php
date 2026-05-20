@@ -236,4 +236,57 @@ trait PaymentCalculationsTrait
     {
         return self::calculateCoreValidUntil($validFrom, member: $member);
     }
+
+
+        /**
+     * Calculate total from selected addons (JSON array of addon IDs)
+     */
+    protected static function calculateAddonTotal(
+        array $selectedAddonIds,
+        ?int $durationValue = 1
+    ): float {
+        if (empty($selectedAddonIds)) {
+            return 0.0;
+        }
+
+        $addons = \App\Models\Addon::whereIn('id', $selectedAddonIds)
+            ->where('is_active', true)
+            ->get();
+
+        $total = 0.0;
+
+        foreach ($addons as $addon) {
+            $price = $addon->price;
+            if ($addon->is_recurring) {
+                $price *= $durationValue;
+            }
+            $total += $price;
+        }
+
+        return $total;
+    }
+
+    
+    /**
+     * Main method used by Payment form + Pay action
+     * Now includes addons
+     */
+    protected static function calculateTotalAmount(Set $set, Get $get): void
+    {
+        $packageId = $get('package_id');
+        $durationValue = (int)($get('duration_value') ?? 1);
+        $selectedAddons = $get('addons') ?? []; // JSON field name we'll use
+
+        $packageAmount = 0.0;
+        if ($packageId) {
+            $package = Package::find($packageId);
+            $packageAmount = $package ? $package->price * $durationValue : 0;
+        }
+
+        $addonAmount = self::calculateAddonTotal($selectedAddons, $durationValue);
+
+        $total = $packageAmount + $addonAmount;
+
+        $set('amount', $total);
+    }
 }

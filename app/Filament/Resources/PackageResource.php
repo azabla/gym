@@ -61,6 +61,18 @@ class PackageResource extends Resource
                     ->placeholder('Enter package price')
                     ])->columns(3),
 
+                    Section::make('Available Addons / Extras')
+                    ->description('Select which addons can be purchased with this package.')
+                    ->schema([
+                        Forms\Components\Select::make('addons')
+                            ->label('Addons')
+                            ->relationship('addons', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->columnSpanFull()
+                            ->helperText('Hold Ctrl/Cmd to select multiple addons'),
+                    ]),
 
                Section::make('Additional Information')
                         ->description('Fill in some details about the package.')
