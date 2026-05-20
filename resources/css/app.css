@@ -3,3 +3,36 @@
 @tailwind utilities;
 @tailwind variants;
 
+
+/* resources/css/app.css */
+
+/* 1. Change Background Color */
+.tippy-box {
+    background-color: #1f2937 !important; /* Dark Gray (Tailwind gray-800) */
+    color: #ffffff !important;            /* White Text */
+    border-radius: 6px !important;        /* Optional: Round corners */
+    font-size: 0.875rem !important;       /* Optional: Adjust font size */
+}
+
+/* 2. Change Arrow Color (to match background) */
+.tippy-arrow {
+    color: #1f2937 !important;
+}
+
+/* 3. Minimize Offset (Distance from element) */
+/* 
+   Tippy uses 'distance' property. 
+   Default is usually 10px. Set to 5px or 0px to minimize.
+*/
+.tippy-box[data-placement^='top'] {
+    margin-bottom: 5px !important; /* Adjust this value */
+}
+.tippy-box[data-placement^='bottom'] {
+    margin-top: 5px !important;
+}
+.tippy-box[data-placement^='left'] {
+    margin-right: 5px !important;
+}
+.tippy-box[data-placement^='right'] {
+    margin-left: 5px !important;
+}

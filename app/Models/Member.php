@@ -43,7 +43,7 @@ class Member extends Model
 
     public function payments()
     {
-        return $this->hasMany(Payment::class);
+        return $this->hasMany(Payment::class)->latest();
     }
 
     // method to get the current status

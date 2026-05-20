@@ -33,9 +33,10 @@ use App\Filament\Traits\PaymentCalculationsTrait;
 use App\Filament\Traits;
 use App\Filament\Traits\CalcPayDateRanges;
 
-use Filament\Actions\Action;
+// use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
+use Filament\Tables\Columns\ActionsColumn;
+
 
 use Illuminate\Support\Facades\App;
 use Illuminate\Validation\Rule;
@@ -49,7 +50,14 @@ use Filament\Forms\Components\Group;
 
 
 use App\Models\Package;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\Section as InfoSeciton;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\EditAction;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\HtmlString;
 
 class MemberResource extends Resource
 {
@@ -377,47 +385,226 @@ class MemberResource extends Resource
                     ->label('Member Details')
                     ->searchable()
                     ->sortable()
-                    ->description(fn($record) => $record->user->email) // Puts email under the name
-                    ->copyable() // Allows clicking to copy email
-                    ->tooltip('Click to copy name'),
-                TextColumn::make('user.phone')
-                    ->label('Phone')
-                    ->icon('heroicon-o-phone')
-                    ->badge()
-                    ->copyable()
-                    ->copyMessage('Phone number copied')
-                    ->copyMessageDuration(1500)
-                    ->tooltip('Click to copy phone number'),
-                TextColumn::make('package.name')
-                    ->badge()
-                    ->color('info')
-                    ->icon('heroicon-o-gift')
-                    ->tooltip(fn($record) => "Price: " . number_format($record->package->price, 2) . " Birr for a {$record->package->duration_unit}"),
-                TextColumn::make('duration_value')
-                    ->label('Duration')
-                    ->numeric()
-                    ->formatStateUsing(
-                        fn($state, $record) =>
-                        $state . ' ' . ($record->package?->duration_unit ?: 'unit')
-                    )
-                    ->tooltip('Default unit if no package assigned')
-                    ->sortable(),
-                TextColumn::make('starting_date')
-                    ->label('Member Since')
-                    ->dateTime('M d, Y')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->tooltip(fn($record): string => "Exact registration: " . $record->starting_date->diffForHumans()),
-                TextColumn::make('valid_from')
-                    ->date()
-                    ->tooltip('Membership Valid From Date')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->sortable(),
+                    // ->color('primary') 
+                    ->weight('bold')
+                    // Use an HtmlString to style the description manually
+                    ->description(fn ($record): HtmlString => new HtmlString(
+                        '<span class="text-yellow-600 capitalize font-medium text-xs">' . 
+                        $record->package->name . 
+                        '</span>'
+                    ))
+
+                    
+                    ->tooltip('See In Detail')  
+                    
+                    ->action(
+                        Tables\Actions\Action::make('view_member_profile')
+                            ->modalHeading('Member Profile')
+                            ->modalWidth('2xl')
+                            ->modalSubmitAction(false) // View-only
+                            ->infolist(fn ($record): Infolist => Infolist::make()
+                                ->record($record)
+                                ->schema([
+                                    // Row 1: Header with Profile Info
+                                    \Filament\Infolists\Components\Grid::make(3)
+                                        ->schema([
+                                            \Filament\Infolists\Components\ImageEntry::make('user.avatar')
+                                                ->label(false)
+                                                ->circular()
+                                                ->grow(false)
+                                                ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&color=7F9CF5&background=EBF4FF'),
+                                            
+                                            \Filament\Infolists\Components\Group::make([
+                                                TextEntry::make('name')
+                                                    ->label(false)
+                                                    ->weight('black')
+                                                    ->size(TextEntry\TextEntrySize::Large),
+                                                TextEntry::make('email')
+                                                    ->label(false)
+                                                    ->icon('heroicon-m-envelope')
+                                                    ->color('gray'),
+                                            ])->columnSpan(2),
+                                        ]),
+                
+                                    // Row 2: Status Highlight
+                                    \Filament\Infolists\Components\Section::make('Membership Status')
+                                        ->columns(3)
+                                        ->compact()
+                                        ->schema([
+                                            
+                                            TextEntry::make('status')
+                                                ->label('Current Status')
+                                                ->badge()
+                                                ->color(fn(string $state): string => match ($state) {
+
+                                                    'active' => 'success',
+                                                    'inactive' => 'danger',
+                                                    // 'suspended' => 'warning',
+                                                    'expired' => 'gray',
+                                                    default => 'primary'
+                                                }),
+                                            TextEntry::make('package.name')
+                                                ->label('Package Name')
+                                                ->badge()
+
+                                                ->color('info'),
+                                            TextEntry::make('duration_value')
+                                                ->label('Duration')
+                                                ->badge()
+                                                ->color('info'),
+                                            TextEntry::make('starting_date')
+                                                ->label('Starting From')
+                                                ->badge()
+                                                ->date()
+                                                ->color('info'),
+                                            TextEntry::make('valid_from')
+                                                ->label('Access From')
+                                                ->badge()
+                                                ->date()
+                                                ->color('info'),
+                                            TextEntry::make('valid_until')
+                                                ->label('Access Until')
+                                                ->date()
+                                                ->badge()
+                                                ->color(fn ($state) => $state > now() ? 'success' : 'danger'),
+                                        ]),
+                
+                                    // Row 3: Contact & Personal Details
+                                    \Filament\Infolists\Components\Section::make('Contact Information')
+                                        ->columns(3)
+                                        ->icon('heroicon-m-phone')
+                                        ->schema([
+                                            TextEntry::make('user.phone')
+                                                ->label('Phone Number')
+                                                ->copyable()
+                                                ->icon('heroicon-m-device-phone-mobile'),
+                                            TextEntry::make('emergency_contact_name')
+                                                ->label('Emergency Contact'),
+                                            TextEntry::make('emergency_contact_phone')
+                                                ->copyable()
+                                                ->label('Emergency Contact')
+                                                ->icon('heroicon-m-device-phone-mobile'),
+
+                                            TextEntry::make('user.note')
+                                                // ->label('Additional Note')
+                                                ->label(fn () => new \Illuminate\Support\HtmlString('
+                                                        <div class="flex items-center gap-1.5">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
+                                                        <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" />
+                                                        <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" />
+                                                        </svg>
+
+                                                            <span>Additional Note</span>
+                                                        </div>
+                                                    '))
+                                                ->columnSpanFull()
+                                                // ->icon('heroicon-m-document-text')
+                                                ->columnSpanFull(),
+                                        ]),
+                                ])
+                            )
+                ),
+                        
+
+                TextColumn::make('membership_id')
+                ->searchable(),
+                // TextColumn::make('user.phone')
+                //     ->label('Phone')
+                //     ->icon('heroicon-o-phone')
+                //     ->badge()
+                //     ->copyable()
+                //     ->copyMessage('Phone number copied')
+                //     ->copyMessageDuration(1500)
+                //     ->tooltip('Click to copy phone number'),
+                // TextColumn::make('package.name')
+                //     ->badge()
+                //     ->color('info')
+                //     ->icon('heroicon-o-gift')
+                //     ->tooltip(fn($record) => "Price: " . number_format($record->package->price, 2) . " Birr for a {$record->package->duration_unit}"),
+                // TextColumn::make('duration_value')
+                //     ->label('Duration')
+                //     ->numeric()
+                //     ->formatStateUsing(
+                //         fn($state, $record) =>
+                //         $state . ' ' . ($record->package?->duration_unit ?: 'unit')
+                //     )
+                //     ->tooltip('Default unit if no package assigned')
+                //     ->sortable(),
+                // TextColumn::make('starting_date')
+                //     ->label('Member Since')
+                //     ->dateTime('M d, Y')
+                //     ->sortable()
+                //     ->toggleable(isToggledHiddenByDefault: true)
+                //     ->tooltip(fn($record): string => "Exact registration: " . $record->starting_date->diffForHumans()),
+                // TextColumn::make('valid_from')
+                //     ->date()
+                //     ->tooltip('Membership Valid From Date')
+                //     ->toggleable(isToggledHiddenByDefault: true)
+                //     ->sortable(),
                 TextColumn::make('valid_until')
                     ->date()
                     ->label('Expiary Date')
-                    ->tooltip('Membership Expiry Date')
-                    ->sortable(),
+                    ->color('info')
+                    ->badge()
+                    ->tooltip('See In Detail')  
+
+                    ->sortable()
+                    ->action(
+                    Action::make('view_payment_history')
+                        ->label(false)
+                        ->icon('heroicon-m-clock')
+                        ->color('info')
+                        ->modalHeading('Membership History')
+                        ->modalSubmitAction(false)
+                        ->modalWidth('md')
+                        ->infolist(fn ($record): Infolist => Infolist::make()
+                            ->record($record)
+                            ->schema([
+                                \Filament\Infolists\Components\Section::make('Current Status')
+                                    ->icon('heroicon-m-check-badge')
+                                    ->schema([
+                                        TextEntry::make('valid_until')
+                                            ->label('Current Expiry')
+                                            ->inlineLabel()
+                                            ->date()
+                                            ->badge()
+                                            ->color('info')
+                                            ->weight('bold')
+                                            ->size(TextEntry\TextEntrySize::Large) // Makes it more prominent
+                                            ->alignCenter(), // Centers the badge
+                                    ]),
+                    
+                                \Filament\Infolists\Components\Section::make('Previous Payments')
+                                    ->icon('heroicon-m-credit-card')
+                                    ->schema([
+                                        RepeatableEntry::make('payments')
+                                            ->label(false)
+                                            
+                                            ->getStateUsing(fn ($record) => $record->payments()->latest('valid_until')->get())
+                                            ->schema([
+                                                // We use a Grid inside the repeatable to force centering
+                                                \Filament\Infolists\Components\Grid::make(1)
+                                                    ->schema([
+                                                        TextEntry::make('valid_until')
+                                                            ->label(false)
+                                                            ->date()
+                                                            ->color('success')
+                                                            ->weight('bold')
+                                                            ->size(TextEntry\TextEntrySize::Large)
+                                                            ->alignCenter(), // The Magic Touch: Centers the text and icon
+                                                        
+                                                        
+                                                    ])
+                                            ])
+                                            ->grid([
+                                                'default' => 1,
+                                            ])
+                                    ]) 
+                            ]) 
+                        )
+                                            ),
+        
+
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
@@ -430,16 +617,15 @@ class MemberResource extends Resource
                     }),
                 // TextColumn::make('emergency_contact_name')
                 //     ->searchable(),
-                TextColumn::make('emergency_contact_phone')
-                    ->label('Emergency Phone')
-                    ->icon('heroicon-o-phone')
-                    ->badge()
-                    ->copyable()
-                    ->copyMessage('Phone number copied')
-                    ->copyMessageDuration(1500)
-                    ->tooltip('click to copy Emergency Contact'),
-                TextColumn::make('membership_id')
-                    ->searchable(),
+                // TextColumn::make('emergency_contact_phone')
+                //     ->label('Emergency Phone')
+                //     ->icon('heroicon-o-phone')
+                //     ->badge()
+                //     ->copyable()
+                //     ->copyMessage('Phone number copied')
+                //     ->copyMessageDuration(1500)
+                //     ->tooltip('click to copy Emergency Contact'),
+                
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -525,8 +711,9 @@ class MemberResource extends Resource
 
 
             ])
+
             ->actions([
-                Tables\Actions\EditAction::make()
+                Action::make('edit')
                     ->modalWidth('4xl') // Makes the popup size
                     ->tooltip('Quick Edit Member')
                     ->slideOver()
@@ -535,7 +722,8 @@ class MemberResource extends Resource
                     ->modalSubmitActionLabel('Save Changes')
                     ->icon('heroicon-m-pencil-square')
                     ->color('warning')
-                    ->mountUsing(function (Form $form, Member $record) {
+                    ->form(fn (Form $form) => static::form($form))
+                    ->mountUsing(function ($form, Member $record) {
 
 
                         
@@ -547,7 +735,7 @@ class MemberResource extends Resource
                         }
                         $form->fill($data);
                     })
-                    ->using(function (Member $record, array $data): Member {
+                    ->action(function (Member $record, array $data): Member {
                         Log::info('Update data:', $data); // See what's being passed
 
                         Log::info('Status value debug:', [
@@ -591,38 +779,128 @@ class MemberResource extends Resource
 
                         return $record;
                     }),
+               
+                    
                 // Add the automatic Pay action
-                Tables\Actions\Action::make('pay')
-                    ->label('Pay')
-                    ->icon('heroicon-o-credit-card')
-                    ->color('primary')
-                    ->slideOver() // Makes it a sidebar instead of a center modal
-                    ->modalHeading('Process Payment')
-                    ->modalDescription('Review and adjust payment details before processing.')
-                    ->modalSubmitActionLabel('Confirm Payment')
-                    ->form([
-                        Section::make('Subscription Details 📝')
-                            ->description('Select their desired package.')
-                            ->schema([
-                                Forms\Components\Select::make('package_id')
-                                    ->label('Package')
-                                    ->options(Package::pluck('name', 'id'))
-                                    ->required()
-                                    ->searchable()
-                                    ->live()
-                                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                        // Recalculate amount and unit when package changes
-                                        $packageId = $get('package_id');
-                                        if ($packageId) {
-                                            $package = Package::find($packageId);
+                
+                Action::make('pay')
+
+                        ->label('Pay')
+                        ->icon('heroicon-o-credit-card')
+                        ->color('primary')
+                        ->slideOver() // Makes it a sidebar instead of a center modal
+                        ->modalHeading('Process Payment')
+                        ->modalDescription('Review and adjust payment details before processing.')
+                        ->modalSubmitActionLabel('Confirm Payment')
+                        ->form([
+                            Section::make('Subscription Details 📝')
+                                ->description('Select their desired package.')
+                                ->schema([
+                                    Forms\Components\Select::make('package_id')
+                                        ->label('Package')
+                                        ->options(Package::pluck('name', 'id'))
+                                        ->required()
+                                        ->searchable()
+                                        ->live()
+                                        ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+                                            // Recalculate amount and unit when package changes
+                                            $packageId = $get('package_id');
+                                            if ($packageId) {
+                                                $package = Package::find($packageId);
+                                                $duration = (int) $get('duration_value');
+
+                                                // Update price
+                                                $set('amount', $package->price * $duration);
+
+                                                // Recalculate End Date
+                                                $validFrom = $get('valid_from');
+                                                if ($validFrom) {
+                                                    $unit = $package->duration_unit ?? 'month';
+                                                    $until = \Carbon\Carbon::parse($validFrom);
+                                                    match ($unit) {
+                                                        'day' => $until->addDays($duration),
+                                                        'week' => $until->addWeeks($duration),
+                                                        'month' => $until->addMonths($duration),
+                                                        'year' => $until->addYears($duration),
+                                                        default => $until->addMonths($duration),
+                                                    };
+                                                    $set('valid_until', $until->format('Y-m-d'));
+                                                }
+                                            }
+                                        }),
+
+                                    Forms\Components\TextInput::make('duration_value')
+                                        ->label('Duration')
+                                        ->numeric()
+                                        ->default(1)
+                                        ->minValue(1)
+                                        ->required()
+                                        ->live()
+                                        ->suffix(
+                                            fn(Forms\Get $get) =>
+                                            $get('package_id') ?
+                                            Package::find($get('package_id'))->duration_unit :
+                                            'Unit'
+                                        )
+                                        ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+                                            // Recalculate amount and dates when duration changes
+                                            $packageId = $get('package_id');
+                                            if ($packageId) {
+                                                $package = Package::find($packageId);
+                                                $duration = (int) $get('duration_value');
+
+                                                // Update Price
+                                                $set('amount', $package->price * $duration);
+
+                                                // Update Date
+                                                $validFrom = $get('valid_from');
+                                                if ($validFrom) {
+                                                    $unit = $package->duration_unit ?? 'month';
+                                                    $until = \Carbon\Carbon::parse($validFrom);
+                                                    match ($unit) {
+                                                        'day' => $until->addDays($duration),
+                                                        'week' => $until->addWeeks($duration),
+                                                        'month' => $until->addMonths($duration),
+                                                        'year' => $until->addYears($duration),
+                                                        default => $until->addMonths($duration),
+                                                    };
+                                                    $set('valid_until', $until->format('Y-m-d'));
+                                                }
+                                            }
+                                        }),
+                                ])->columns(2),
+
+                            Section::make('Payment & Dates 💰')
+                                ->description('Enter payment details and validity period.')
+                                ->schema([
+                                    Forms\Components\TextInput::make('amount')
+                                        ->label('Total Amount')
+                                        ->prefix('ETB')
+                                        ->readOnly()
+                                        ->numeric()
+                                        ->required(),
+
+                                    Forms\Components\Select::make('payment_method')
+                                        ->options([
+                                            'cash' => 'Cash',
+                                            'online' => 'Online',
+                                        ])
+                                        ->default('cash')
+                                        ->required(),
+
+                                    Forms\Components\DatePicker::make('valid_from')
+                                        ->label('Valid From')
+                                        ->required()
+                                        ->native(false)
+                                        ->live()
+                                        ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
+                                            // Recalculate valid_until if the start date is manually changed
+                                            $packageId = $get('package_id');
                                             $duration = (int) $get('duration_value');
-
-                                            // Update price
-                                            $set('amount', $package->price * $duration);
-
-                                            // Recalculate End Date
                                             $validFrom = $get('valid_from');
-                                            if ($validFrom) {
+
+                                            if ($packageId && $validFrom) {
+                                                $package = Package::find($packageId);
                                                 $unit = $package->duration_unit ?? 'month';
                                                 $until = \Carbon\Carbon::parse($validFrom);
                                                 match ($unit) {
@@ -634,179 +912,98 @@ class MemberResource extends Resource
                                                 };
                                                 $set('valid_until', $until->format('Y-m-d'));
                                             }
-                                        }
-                                    }),
+                                        }),
 
-                                Forms\Components\TextInput::make('duration_value')
-                                    ->label('Duration')
-                                    ->numeric()
-                                    ->default(1)
-                                    ->minValue(1)
-                                    ->required()
-                                    ->live()
-                                    ->suffix(
-                                        fn(Forms\Get $get) =>
-                                        $get('package_id') ?
-                                        Package::find($get('package_id'))->duration_unit :
-                                        'Unit'
-                                    )
-                                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                        // Recalculate amount and dates when duration changes
-                                        $packageId = $get('package_id');
-                                        if ($packageId) {
-                                            $package = Package::find($packageId);
-                                            $duration = (int) $get('duration_value');
+                                    Forms\Components\DatePicker::make('valid_until')
+                                        ->label('Valid Until')
+                                        ->required()
+                                        ->native(false)
+                                        ->readOnly(),
 
-                                            // Update Price
-                                            $set('amount', $package->price * $duration);
-
-                                            // Update Date
-                                            $validFrom = $get('valid_from');
-                                            if ($validFrom) {
-                                                $unit = $package->duration_unit ?? 'month';
-                                                $until = \Carbon\Carbon::parse($validFrom);
-                                                match ($unit) {
-                                                    'day' => $until->addDays($duration),
-                                                    'week' => $until->addWeeks($duration),
-                                                    'month' => $until->addMonths($duration),
-                                                    'year' => $until->addYears($duration),
-                                                    default => $until->addMonths($duration),
-                                                };
-                                                $set('valid_until', $until->format('Y-m-d'));
-                                            }
-                                        }
-                                    }),
-                            ])->columns(2),
-
-                        Section::make('Payment & Dates 💰')
-                            ->description('Enter payment details and validity period.')
-                            ->schema([
-                                Forms\Components\TextInput::make('amount')
-                                    ->label('Total Amount')
-                                    ->prefix('ETB')
-                                    ->readOnly()
-                                    ->numeric()
-                                    ->required(),
-
-                                Forms\Components\Select::make('payment_method')
-                                    ->options([
-                                        'cash' => 'Cash',
-                                        'online' => 'Online',
-                                    ])
-                                    ->default('cash')
-                                    ->required(),
-
-                                Forms\Components\DatePicker::make('valid_from')
-                                    ->label('Valid From')
-                                    ->required()
-                                    ->native(false)
-                                    ->live()
-                                    ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) {
-                                        // Recalculate valid_until if the start date is manually changed
-                                        $packageId = $get('package_id');
-                                        $duration = (int) $get('duration_value');
-                                        $validFrom = $get('valid_from');
-
-                                        if ($packageId && $validFrom) {
-                                            $package = Package::find($packageId);
-                                            $unit = $package->duration_unit ?? 'month';
-                                            $until = \Carbon\Carbon::parse($validFrom);
-                                            match ($unit) {
-                                                'day' => $until->addDays($duration),
-                                                'week' => $until->addWeeks($duration),
-                                                'month' => $until->addMonths($duration),
-                                                'year' => $until->addYears($duration),
-                                                default => $until->addMonths($duration),
-                                            };
-                                            $set('valid_until', $until->format('Y-m-d'));
-                                        }
-                                    }),
-
-                                Forms\Components\DatePicker::make('valid_until')
-                                    ->label('Valid Until')
-                                    ->required()
-                                    ->native(false)
-                                    ->readOnly(),
-
-                                Forms\Components\Textarea::make('notes')
-                                    ->rows(2)
-                                    ->columnSpanFull(),
-                            ])->columns(4),
-                    ])
-                    // Pre-fill the form with Member data
-                    ->mountUsing(function (Forms\ComponentContainer $form, Member $record) {
-                        // Calculate logic for start date (Logic taken from PaymentResource)
-                        $validFrom = now()->format('Y-m-d');
-                        if ($record->valid_until) {
-                            $expiryDate = \Carbon\Carbon::parse($record->valid_until)->endOfDay();
-                            $today = now()->startOfDay();
-                            if ($expiryDate->greaterThan($today)) {
-                                $validFrom = $expiryDate->addDay()->format('Y-m-d');
+                                    Forms\Components\Textarea::make('notes')
+                                        ->rows(2)
+                                        ->columnSpanFull(),
+                                ])->columns(4),
+                        ])
+                        // Pre-fill the form with Member data
+                        ->mountUsing(function (Forms\ComponentContainer $form, Member $record) {
+                            // Calculate logic for start date (Logic taken from PaymentResource)
+                            $validFrom = now()->format('Y-m-d');
+                            if ($record->valid_until) {
+                                $expiryDate = \Carbon\Carbon::parse($record->valid_until)->endOfDay();
+                                $today = now()->startOfDay();
+                                if ($expiryDate->greaterThan($today)) {
+                                    $validFrom = $expiryDate->addDay()->format('Y-m-d');
+                                }
                             }
-                        }
 
-                        // Calculate End Date
-                        $package = $record->package;
-                        $duration = $record->duration_value ?: 1;
-                        $validUntil = \Carbon\Carbon::parse($validFrom);
+                            // Calculate End Date
+                            $package = $record->package;
+                            $duration = $record->duration_value ?: 1;
+                            $validUntil = \Carbon\Carbon::parse($validFrom);
 
-                        if ($package) {
-                            $unit = $package->duration_unit ?? 'month';
-                            match ($unit) {
-                                'day' => $validUntil->addDays($duration),
-                                'week' => $validUntil->addWeeks($duration),
-                                'month' => $validUntil->addMonths($duration),
-                                'year' => $validUntil->addYears($duration),
-                                default => $validUntil->addMonths($duration),
-                            };
-                        } else {
-                            $validUntil->addMonth();
-                        }
+                            if ($package) {
+                                $unit = $package->duration_unit ?? 'month';
+                                match ($unit) {
+                                    'day' => $validUntil->addDays($duration),
+                                    'week' => $validUntil->addWeeks($duration),
+                                    'month' => $validUntil->addMonths($duration),
+                                    'year' => $validUntil->addYears($duration),
+                                    default => $validUntil->addMonths($duration),
+                                };
+                            } else {
+                                $validUntil->addMonth();
+                            }
 
-                        $form->fill([
-                            'package_id' => $record->package_id,
-                            'duration_value' => $duration,
-                            'amount' => $package ? ($package->price * $duration) : 0,
-                            'payment_method' => 'cash',
-                            'valid_from' => $validFrom,
-                            'valid_until' => $validUntil->format('Y-m-d'),
-                        ]);
-                    })
-                    ->action(function (Member $record, array $data) {
-                        // Process the payment with the DATA from the FORM, not just the record defaults
-                        $payment = Payment::create([
-                            'member_id' => $record->id,
-                            'package_id' => $data['package_id'],
-                            'amount' => $data['amount'],
-                            'payment_method' => $data['payment_method'],
-                            'payment_date' => now(),
-                            'valid_from' => $data['valid_from'],
-                            'valid_until' => $data['valid_until'],
-                            'transaction_id' => 'TXN-' . strtoupper(Str::random(8)),
-                            'status' => 'completed',
-                            'duration_value' => $data['duration_value'],
-                            'notes' => $data['notes'] ?? 'Manual payment via Member Table',
-                        ]);
+                            $form->fill([
+                                'package_id' => $record->package_id,
+                                'duration_value' => $duration,
+                                'amount' => $package ? ($package->price * $duration) : 0,
+                                'payment_method' => 'cash',
+                                'valid_from' => $validFrom,
+                                'valid_until' => $validUntil->format('Y-m-d'),
+                            ]);
+                        })
+                        ->action(function (Member $record, array $data) {
+                            // Process the payment with the DATA from the FORM, not just the record defaults
+                            $payment = Payment::create([
+                                'member_id' => $record->id,
+                                'package_id' => $data['package_id'],
+                                'amount' => $data['amount'],
+                                'payment_method' => $data['payment_method'],
+                                'payment_date' => now(),
+                                'valid_from' => $data['valid_from'],
+                                'valid_until' => $data['valid_until'],
+                                'transaction_id' => 'TXN-' . strtoupper(Str::random(8)),
+                                'status' => 'completed',
+                                'duration_value' => $data['duration_value'],
+                                'notes' => $data['notes'] ?? 'Manual payment via Member Table',
+                            ]);
 
-                        // Payment model observer (booted method) handles updating the Member
-                        // automatically when a 'completed' payment is created. 
-                        // But if want it to be explicit uncomment this
+                            // Payment model observer (booted method) handles updating the Member
+                            // automatically when a 'completed' payment is created. 
+                            // But if want it to be explicit uncomment this
+                
+                            $record->update([
+                                'valid_until' => $data['valid_until'],
+                                'status' => 'active',
+                            ]);
+
+
+                            Notification::make()
+                                ->title('Payment Processed')
+                                ->body("Payment of {$data['amount']} Birr recorded. Expiry updated to {$data['valid_until']}")
+                                ->success()
+                                ->send();
+                        }),
+                
+                    
             
-                        $record->update([
-                            'valid_until' => $data['valid_until'],
-                            'status' => 'active',
-                        ]);
-
-
-                        Notification::make()
-                            ->title('Payment Processed')
-                            ->body("Payment of {$data['amount']} Birr recorded. Expiry updated to {$data['valid_until']}")
-                            ->success()
-                            ->send();
-                    }),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
+                
+                ])
+            
+             ->bulkActions([
+                    Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\BulkAction::make('bulk_pay')
                         ->label('Bulk Pay Selected Members')
@@ -839,8 +1036,9 @@ class MemberResource extends Resource
                         })
                         ->modalSubmitActionLabel('Process Bulk Payments')
                         ->deselectRecordsAfterCompletion(),
-                ]),
-            ]);
+                   ]),
+                
+                ]);
 
 
     }
