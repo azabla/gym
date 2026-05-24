@@ -6,6 +6,47 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int|null $package_id
+ * @property int $duration_value
+ * @property Carbon|null $starting_date
+ * @property Carbon|null $valid_from
+ * @property Carbon|null $valid_until
+ * @property string $status
+ * @property string|null $emergency_contact_name
+ * @property string|null $emergency_contact_phone
+ * @property string $membership_id
+ * @property string|null $notes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Addon> $addons
+ * @property-read int|null $addons_count
+ * @property-read \App\Models\Package|null $package
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Payment> $payments
+ * @property-read int|null $payments_count
+ * @property-read \App\Models\User $user
+ * @method static \Database\Factories\MemberFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereDurationValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereEmergencyContactName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereEmergencyContactPhone($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereMembershipId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member wherePackageId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereStartingDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereValidFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Member whereValidUntil($value)
+ * @mixin \Eloquent
+ */
 class Member extends Model
 {
 

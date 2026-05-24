@@ -7,24 +7,22 @@ return [
         'navigation_sort' => -1,
         'navigation_badge' => true,
         'navigation_group' => true,
-        'sub_navigation_position' => null,
         'is_globally_searchable' => false,
         'show_model_path' => true,
         'is_scoped_to_tenant' => true,
         'cluster' => null,
     ],
 
-    'tenant_model' => null,
+    'tenant_model' => null, // Set your tenant model if using multi-tenancy
 
-    'auth_provider_model' => [
-        'fqcn' => 'App\\Models\\User',
-    ],
+    // FIXED: Changed from array to a direct string class reference
+    'auth_provider_model' => \App\Models\User::class, 
 
     'super_admin' => [
         'enabled' => true,
         'name' => 'super_admin',
         'define_via_gate' => false,
-        'intercept_gate' => 'before', // after
+        'intercept_gate' => 'before', // options: before, after
     ],
 
     'panel_user' => [
@@ -88,5 +86,4 @@ return [
     'register_role_policy' => [
         'enabled' => true,
     ],
-
 ];

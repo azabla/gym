@@ -5,6 +5,43 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property int $member_id
+ * @property int|null $package_id
+ * @property numeric $amount
+ * @property string $payment_method
+ * @property string|null $payment_date
+ * @property string|null $transaction_id
+ * @property string $valid_from
+ * @property string $valid_until
+ * @property string|null $notes
+ * @property array<array-key, mixed>|null $addons
+ * @property string $status
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Member $member
+ * @property-read \App\Models\Package|null $package
+ * @method static \Database\Factories\PaymentFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereAddons($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereMemberId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment wherePackageId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment wherePaymentDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment wherePaymentMethod($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereTransactionId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereValidFrom($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payment whereValidUntil($value)
+ * @mixin \Eloquent
+ */
 class Payment extends Model
 {
     use HasFactory;

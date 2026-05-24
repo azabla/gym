@@ -5,6 +5,39 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string|null $description
+ * @property numeric $price
+ * @property string $duration_unit
+ * @property string|null $image
+ * @property array<array-key, mixed>|null $features
+ * @property string $status
+ * @property string|null $deleted_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Addon> $addons
+ * @property-read int|null $addons_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Member> $members
+ * @property-read int|null $members_count
+ * @method static \Database\Factories\PackageFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereDurationUnit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereFeatures($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package wherePrice($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Package whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class Package extends Model
 {
     use HasFactory;

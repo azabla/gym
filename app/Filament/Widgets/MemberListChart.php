@@ -8,7 +8,7 @@ use Filament\Widgets\ChartWidget;
 
 class MemberListChart extends ChartWidget
 {
-    protected static ?string $heading = 'Member Activity';
+    protected ?string $heading = 'Member Activity';
     protected static ?int $sort = 3;
   
     // Must be public so Livewire can update it

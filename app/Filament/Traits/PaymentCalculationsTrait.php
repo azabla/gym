@@ -2,11 +2,12 @@
 
 namespace App\Filament\Traits;
 
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\Utilities\Get;
+use App\Models\Addon;
 use App\Models\Member;
 use App\Models\Package;
 use Carbon\Carbon;
-use Filament\Forms\Set;
-use Filament\Forms\Get;
 use Illuminate\Support\Facades\Log;
 
 trait PaymentCalculationsTrait
@@ -249,7 +250,7 @@ trait PaymentCalculationsTrait
             return 0.0;
         }
 
-        $addons = \App\Models\Addon::whereIn('id', $selectedAddonIds)
+        $addons = Addon::whereIn('id', $selectedAddonIds)
             ->where('is_active', true)
             ->get();
 

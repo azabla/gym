@@ -7,16 +7,18 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "agelgil/filament-ethiopic-calendar": "^0.1.1",
-        "bezhansalleh/filament-shield": "^3.9",
-        "filament/filament": "3.3",
+        "agelgil/filament-ethiopic-calendar": "^0.2",
+        "bezhansalleh/filament-shield": "^4.0",
+        "filament/filament": "^4.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "livewire/flux": "^2.1.1",
         "livewire/volt": "^1.7.0"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "^3.7",
         "fakerphp/faker": "^1.23",
+        "filament/upgrade": "~4.0",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.18",
         "laravel/sail": "^1.41",
