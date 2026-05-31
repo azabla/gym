@@ -22,7 +22,9 @@ return new class extends Migration
             $table->string('transaction_id')->nullable()->unique();
             $table->date('valid_from'); // Date when the payment is valid from
             $table->date('valid_until'); // Date when the payment expires or is valid until
+            
             $table->text('notes')->nullable(); // Additional notes or comments about the payment
+
             $table->enum('status', ['pending', 'completed', 'failed'])->default('completed');
             $table->timestamps();
         });

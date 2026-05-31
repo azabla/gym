@@ -57,8 +57,9 @@ class Payment extends Model
         'valid_until',
         'notes',
         'status',
-        // 'duration_value',     
-        'addons',
+        'duration_value', 
+        'addons',    
+        
     ];
 
     protected $casts = [
@@ -129,4 +130,31 @@ class Payment extends Model
             });
         }
     
+
+
+        // Get addons as collection
+    public function getAddonsListAttribute()
+    {
+        if (!$this->addons) {
+            return collect();
+        }
+        
+        return collect($this->addons);
+    }
+
+    // Calculate addons total
+    public function getAddonsTotalAttribute()
+    {
+        if (!$this->addons) {
+            return 0;
+        }
+        
+        return collect($this->addons)->sum('price');
+    }
+
+    // Get package price from stored data
+    public function getPackagePriceAttribute()
+    {
+        return $this->package?->price ?? 0;
+    }
 }

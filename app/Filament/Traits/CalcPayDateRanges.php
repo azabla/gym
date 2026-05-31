@@ -21,10 +21,12 @@ trait CalcPayDateRanges{
         
     ): void {
 
-        $startingDate = $get($startingDatePath);
+        $startingDate = $get($startingDatePath) ?? now();
         $duration = (int)($get($durationValuePath) ?? $defaultDuration);
-        $durationUnit = $get($durationUnitPath ?? $defaultUnit);
+        $durationUnit = $get($durationUnitPath) ?? $defaultUnit;
 
+        // 
+        
         if(!$startingDate){
             return ;
         }
@@ -40,8 +42,8 @@ trait CalcPayDateRanges{
             default => $until->addMonths($duration)
         };
 
+        // dd($until);
         $set($outputFromPath, $from->toDateString());
         $set($outputUntilPath, $until->toDateString());
     }
 }
-

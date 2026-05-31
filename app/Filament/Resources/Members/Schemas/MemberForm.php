@@ -2,6 +2,7 @@
 namespace App\Filament\Resources\Members\Schemas;
 
 use App\Filament\Traits\CalcPayDateRanges;
+use App\Models\Addon;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -17,6 +18,9 @@ use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
 use App\Models\Package;
+use Carbon\Carbon;
+use Filament\Forms\Components\Placeholder;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Facades\Hash;
 
@@ -78,12 +82,12 @@ class MemberForm
                                     ]),
                                 Section::make('Account Security 🔐')
                                     ->description('Manage login credentials.')
-                                    ->collapsed(false) // Collapsed by default to save space
+                                    ->collapsed() // Collapsed by default to save space
                                     ->schema([
                                         Grid::make(3)->schema([
                                             Hidden::make('user.id'),
                                             TextInput::make('user.username')
-                                                ->required()
+                                                
                                                 ->unique(
                                                     table: 'users',
                                                     column: 'username',
@@ -111,14 +115,14 @@ class MemberForm
                                                 ->prefixIcon('heroicon-o-lock-closed')
                                                 ->dehydrateStateUsing(fn($state) => filled($state) ? Hash::make($state) : null)
                                                 ->dehydrated(fn($state) => filled($state))
-                                                ->required(fn(string $context) => $context === 'create')  // Required only on create
+                                                
                                                 ->helperText('Leave blank to keep current password.'),
                                         ]),
                                     ]),
                                 // --- Emergency Contact (Only for members) ---
                                 Section::make('Emergency Contact 🆘')
                                     ->description('Contact details in case of emergencies.')
-                                    ->collapsed(false)
+                                    ->collapsed()
                                     ->schema([
                                         Grid::make(2)->schema([
                                             TextInput::make('emergency_contact_name')
@@ -141,13 +145,69 @@ class MemberForm
                                 // --- Notes ---
                                 Section::make('Notes 📝')
                                     ->description('Additional notes about the member')
-                                    ->collapsed(false)
+                                    ->collapsed()
                                     ->schema([
                                         Textarea::make('notes')
                                             ->label('Additional Notes')
                                             ->rows(3),
                                     ]),
                                 // ->hidden(fn(Get $get) => $get('role') !== 'member'),
+
+                                Section::make('Add-ons & Extras')
+                                    ->description('Select optional add-ons to customize the membership')
+                                    ->icon('heroicon-o-shopping-bag')
+                                    ->schema([
+                                        CheckboxList::make('addons')
+                                            ->label('Member Addons / Extras')
+                                            // ->relationship('addons', 'name')
+                                            ->options(Addon::pluck('name', 'id'))
+                                            ->columnSpanFull()
+                                            ->live()
+                                            ->afterStateUpdated(function ($state,  Set $set){
+                                                $total = Addon::whereIn('id', $state)->sum('price');
+                                                $set('addon_total', $total);
+                                            })->columns(2),
+                                        Placeholder::make('addon_total_display')
+                                        ->label('Addon Total')
+                                        ->content(fn (Get $get) =>
+                                            number_format($get('addon_total') ?? 0, 2) . ' ETB'
+                                        )
+                                        ]),
+
+                                        Section::make('Membership Summary')
+                                        ->schema([
+                                            Placeholder::make('package_summary')
+                                                ->label('Package')
+                                                ->content(function (Get $get) {
+                                                    $package = Package::find($get('package_id'));
+                                                    if (!$package) return '—';
+                                                    return $package->name . ' — ' . number_format($package->price, 2) . ' ETB';
+                                                })
+                                                ->extraAttributes(['class' => 'bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3']),
+                                    
+                                            Placeholder::make('addons_summary')
+                                                ->label('Add-ons')
+                                                ->content(function (Get $get) {
+                                                    $addonIds = $get('addons') ?? [];
+                                                    if (empty($addonIds)) return '—';
+                                                    
+                                                    $addons = Addon::whereIn('id', $addonIds)->get();
+                                                    return $addons->map(fn($a) => $a->name . ' (+' . number_format($a->price, 2) . ')')->implode(', ');
+                                                })
+                                                ->extraAttributes(['class' => 'bg-green-50 dark:bg-green-900/20 rounded-lg p-3']),
+                                    
+                                            Placeholder::make('total')
+                                                ->label('Total')
+                                                ->content(function (Get $get) {
+                                                    $packagePrice = Package::find($get('package_id'))?->price ?? 0;
+                                                    $addonPrice = Addon::whereIn('id', $get('addons') ?? [])->sum('price');
+                                                    return number_format($packagePrice + $addonPrice, 2) . ' ETB';
+                                                })
+                                                ->extraAttributes(['class' => 'bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3 font-bold text-primary-700 dark:text-primary-400']),
+                                        ])
+                                        ->extraAttributes(['class' => 'space-y-3'])
+                                        ->live()
+                                        ->columns(3),
                             ]),
                         Group::make()
                             ->columnSpan(['lg' => 1])
@@ -169,7 +229,7 @@ class MemberForm
                                 // the member specific data
 
                                 Section::make('Membership Details 💳')
-                                    ->collapsed(false)
+                                    // ->collapsed()
                                     ->schema([
                                         TextInput::make('membership_id')
                                             ->label('Membership ID')
@@ -186,10 +246,13 @@ class MemberForm
                                             ->label('Package')
                                             ->options(Package::pluck('name', 'id'))
                                             ->searchable()
-                                            ->nullable()
+                                            ->native(false)
+                                            
                                             ->required()
                                             ->prefixIcon('heroicon-o-gift')
                                             ->live()
+                                            ->default(fn() => Package::where('name', 'monthly')->value('id'))
+                                            
                                             ->afterStateUpdated(function (Set $set, Get $get) {
 
                                                 $packageId = $get('package_id'); // get the selected package ID
@@ -200,6 +263,8 @@ class MemberForm
                                                 $package = Package::find($packageId); // find the package by ID
                                                 if ($package) { // if the package exists, set the duration unit
                                                     $set('duration_unit', $package->duration_unit ?? 'month');
+                                                    $set('duration_value', $package->duration_value ?? 1);
+
                                                 }
 
                                                 // self::calculateMembershipValidity($set, $get);
@@ -247,10 +312,16 @@ class MemberForm
                                                 );
                                             }),
 
-                                        CheckboxList::make('addons')
-                                            ->label('Member Addons / Extras')
-                                            ->relationship('addons', 'name')
-                                            ->columnSpanFull(),
+                                        
+
+                                        // CheckboxList::make('addons')
+                                        // ->options(
+                                        //     \App\Models\Addon::pluck('name', 'id')->toArray()
+                                        // )
+                                        // ->live()
+                                        // ->afterStateUpdated(function ($state) {
+                                        //     dd($state);
+                                        // }),
                                     ]),
 
                                 Section::make('Validity Period 📅')
@@ -258,7 +329,7 @@ class MemberForm
                                     ->schema([
 
                                         DatePicker::make('starting_date')
-                                            ->ethiopic()
+                                           
                                             ->label('Starting Date')
                                             ->required()
                                             ->default(now())
@@ -276,21 +347,28 @@ class MemberForm
                                                     outputFromPath: 'valid_from',
                                                     outputUntilPath: 'valid_until'
                                                 );
+
+                                                
                                             }),
+
+                                          
                                         DatePicker::make('valid_from')
-                                            ->ethiopic()
                                             ->label('Valid From')
                                             ->disabled()
+                                            ->native(false)
                                             ->prefixIcon('heroicon-o-calendar-days')
-                                            ->dehydrated(),
+                                            ->dehydrated()
+                                            ->default(fn () => Carbon::parse(now())),
 
                                         DatePicker::make('valid_until')
-                                            ->ethiopic()
+                                            
                                             ->label('Valid Until')
                                             ->disabled()
+                                            ->native(false)
                                             ->prefixIcon('heroicon-o-x-mark')
                                             ->dehydrated()
-                                            ->extraAttributes(['class' => 'font-bold text-primary-600']),
+                                            ->extraAttributes(['class' => 'font-bold text-primary-600'])
+                                            ->default(fn () => Carbon::parse(now())->addMonth()),
 
 
 
@@ -320,8 +398,12 @@ class MemberForm
                             ]),
                     ]),
 
-            ]);
+
+                    
+
+            ])->columns(1);
     }
 
 
+    
 }

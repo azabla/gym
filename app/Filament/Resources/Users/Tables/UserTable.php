@@ -73,11 +73,13 @@ class UserTable
                         'male' => 'heroicon-o-user',
                         'female' => 'heroicon-o-user-plus',
                         default => null,
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('address')
                     ->searchable()
                     ->limit(20)
-                    ->tooltip(fn($record) => $record->address),
+                    ->tooltip(fn($record) => $record->address)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')
                     ->label('Phone Number')
                     ->searchable()
@@ -86,16 +88,19 @@ class UserTable
                     ->copyable()
                     ->copyMessage('Phone number copied')
                     ->copyMessageDuration(1500)
-                    ->tooltip('Click to copy Number'),
+                    ->tooltip('Click to copy Number')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
-                    ->dateTime()
+                   ->date()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->date()
+                    
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('created_at', 'desc')
             ->deferLoading()
             ->striped()
             ->filters([

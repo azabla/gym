@@ -32,8 +32,8 @@ public static function configure(Schema $schema): Schema
 {
     $memberRoleId = SpatieRole::where('name', 'member')->value('id');
 
-    $isMember = fn(Get $get): bool =>
-        in_array($memberRoleId, $get('roles') ?? []);
+    $isMember = fn(Get $get): bool => $get('roles') == $memberRoleId;
+
 
     return $schema
         ->components([
@@ -77,24 +77,38 @@ public static function configure(Schema $schema): Schema
                                         'female' => 'Female',
                                     ])
                                     ->native(false)
+                                    ->default('male')
                                     ->required(),
                             ])
                             ->columns(2),
+                        
+
+                        Select::make('roles')
+                        ->relationship('roles', 'name')
+                        
+                        ->preload()
+                        ->searchable()
+                        ->live()
+                        ->required()
+                        ->columnSpanFull(),
+
 
                         // ACCOUNT & SECURITY
                         Section::make('Account & Security')
                             ->icon('heroicon-o-lock-closed')
                             ->description('Authentication and permissions.')
+                            ->collapsed()
+                            
                             ->compact()
                             ->schema([
                                 TextInput::make('username')
-                                    ->required()
+                                    
                                     ->unique(ignoreRecord: true)
                                     ->prefixIcon('heroicon-o-user-circle'),
 
                                 TextInput::make('email')
                                     ->email()
-                                    ->required()
+                                
                                     ->unique(ignoreRecord: true)
                                     ->prefixIcon('heroicon-o-envelope'),
 
@@ -104,21 +118,16 @@ public static function configure(Schema $schema): Schema
                                     ->dehydrateStateUsing(
                                         fn($state) => filled($state) ? Hash::make($state) : null
                                     )
-                                    ->required(fn(string $context) => $context === 'create')
+                                    
                                     ->helperText('Leave blank to keep current password.')
                                     ->prefixIcon('heroicon-o-lock-closed'),
 
-                                Select::make('roles')
-                                    ->relationship('roles', 'name')
-                                    ->multiple()
-                                    ->preload()
-                                    ->searchable()
-                                    ->live()
-                                    ->required()
-                                    ->columnSpanFull(),
                             ])
-                            ->columns(2),
+                            ->columns(2)
+                            ->collapsible(),
 
+                        
+                       
                        
                         // ADDONS
                         Section::make('Membership Addons')
@@ -134,29 +143,29 @@ public static function configure(Schema $schema): Schema
 
                         // EMERGENCY CONTACT
                         Section::make('Emergency Contact')
-                            ->icon('heroicon-o-phone')
+                        
+                            ->icon('heroicon-o-pencil-square')
+                            ->description('Add detail Info.')
                             ->visible($isMember)
+                            ->collapsed()
                             ->compact()
                             ->schema([
                                 TextInput::make('member.emergency_contact_name'),
 
                                 TextInput::make('member.emergency_contact_phone')
                                     ->tel(),
-                            ])
-                            ->columns(2),
 
-                        // NOTES
-                        Section::make('Notes')
-                            ->icon('heroicon-o-document-text')
-                            ->visible($isMember)
-                            ->compact()
-                            ->schema([
                                 Textarea::make('member.notes')
                                     ->rows(4)
-                                    ->columnSpanFull(),
-                            ]),
+                                    ->columnSpanFull()
+                            ])
+                            ->columns(2)
+                            ->collapsible(),
+
+                        // NOTES
+                        
                     ])
-                    ->columnSpan(['default' => 12, 'xl' => 8]),
+                    ->columnSpan(['default' => 12, 'xl' => 7]),
 
 
                 /*
@@ -203,24 +212,107 @@ public static function configure(Schema $schema): Schema
                                     ->options(Package::pluck('name', 'id'))
                                     ->searchable()
                                     ->live()
-                                    ->required(),
+                                    ->required()
+                                    ->afterStateUpdated(function (Set $set, Get $get){
+                                        $packageId = $get('member.package_id');
+                                        if(!$packageId){
+                                            return;
+                                        }
+
+                                        $package = Package::find($packageId);
+                                        if($package){
+                                            $set('duration_unit', $package->duration_unit ?? 'month');
+                                        }
+
+                                        static::calcPayDateRanges(
+                                            set: $set,
+                                            get: $get,
+                                            startingDatePath: 'member.starting_date',
+                                            durationValuePath: 'member.duration_value',
+                                            durationUnitPath: 'duration_unit',
+                                            outputFromPath: 'member.valid_from',
+                                            outputUntilPath: 'member.valid_until'
+                                        );
+                                    }),
 
                                 TextInput::make('member.duration_value')
-                                    ->numeric()
-                                    ->default(1)
-                                    ->required(),
+                                ->label('Durations')
+                                ->numeric()
+                                ->step(1) // forces integer input in browser
+                                ->minValue(1)
+                                ->default(1)
+                                ->required()
+                                ->live()
+                                ->prefixIcon('heroicon-o-clock')
+                                ->suffix(fn(Get $get) => match ($get('memeber.duration_unit')) {
+                                    'day' => 'Day(s)',
+                                    'week' => 'Week(s)',
+                                    'month' => 'Month(s)',
+                                    'year' => 'Year(s)',
+                                    default => 'Month(s)',
+                                })
+                                ->afterStateUpdated(function (Set $set, Get $get) {
+                                    // self::calculateMembershipValidity($set, $get);
+                                    static::calcPayDateRanges(
+                                        set: $set,
+                                        get: $get,
+                                        startingDatePath: 'member.starting_date',
+                                        durationValuePath: 'member.duration_value',
+                                        durationUnitPath: 'duration_unit',
+                                        outputFromPath: 'member.valid_from',
+                                        outputUntilPath: 'member.valid_until'
+                                    );
+                                }),
 
+                                Hidden::make('duration_unit')
+                                ->dehydrated(false), // Will hold 'day', 'week', 'month', 'year'
+                                
                                 DatePicker::make('member.starting_date')
+                                    ->ethiopic()
+                                    ->label('Starting Date')
                                     ->required()
-                                    ->default(now()),
+                                    ->default(now())
+                                    ->live()
+                                    ->prefixIcon('heroicon-o-calendar')
+                                    ->native(false)
+                                    ->afterStateUpdated(function (Set $set, Get $get) {
+                                        // self::calculateMembershipValidity($set, $get);
+                                        static::calcPayDateRanges(
+                                            set: $set,
+                                            get: $get,
+                                            startingDatePath: 'member.starting_date',
+                                            durationValuePath: 'member.duration_value',
+                                            durationUnitPath: 'duration_unit',
+                                            outputFromPath: 'member.valid_from',
+                                            outputUntilPath: 'member.valid_until'
+                                        );
+                                    }),
 
                                 DatePicker::make('member.valid_from')
-                                    ->disabled(),
+                                    ->ethiopic()
+                                    ->label('Valid From')
+                                    ->disabled()
+                                    ->prefixIcon('heroicon-o-calendar-days')
+                                    ->dehydrated(),
 
                                 DatePicker::make('member.valid_until')
-                                    ->disabled(),
+                                    ->ethiopic()
+                                    ->label('Valid Until')
+                                    ->disabled()
+                                    ->prefixIcon('heroicon-o-x-mark')
+                                    ->dehydrated()
+                                    ->extraAttributes(['class' => 'font-bold text-primary-600']),
+
 
                                 TextInput::make('member.membership_id')
+                                    ->label('Membership ID')
+                                    ->unique(
+                                        table: 'members',           // ✅ Check in `members` table
+                                        column: 'membership_id',    // ✅ The column to check
+                                        ignoreRecord: true,         // ✅ Ignore current record when editing
+                                    )
+                                    ->default(fn() => 'MEM-' . now()->format('Y') . '-' . random_int(1000, 9999))
+                                    ->prefixIcon('heroicon-o-identification')
                                     ->required(),
 
                                 Select::make('member.status')
@@ -234,7 +326,7 @@ public static function configure(Schema $schema): Schema
                             ])
                             ->columns(2),
                     ])
-                    ->columnSpan(['default' => 12, 'xl' => 4]),
+                    ->columnSpan(['default' => 12, 'xl' => 5]),
 
             ]),
         ])

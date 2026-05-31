@@ -52,8 +52,9 @@ use Filament\Tables\Filters\TernaryFilter;
 
 
 use App\Models\Package;
-
-
+use App\Services\BulkPaymentService;
+use App\Services\MemberUpdateService;
+use App\Services\PaymentService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 
@@ -122,7 +123,7 @@ class MemberTable
                                             ImageEntry::make('user.avatar')
                                                 ->label(false)
                                                 ->circular()
-                                                ->grow(false)
+                                                ->grow()
                                                 ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&color=7F9CF5&background=EBF4FF'),
                                             
                                             Group::make([
@@ -253,6 +254,26 @@ class MemberTable
                 //     ->tooltip('Membership Valid From Date')
                 //     ->toggleable(isToggledHiddenByDefault: true)
                 //     ->sortable(),
+
+                TextColumn::make('addons_summary')
+                    ->label('Addons')
+                    ->state(function ($record) {
+                        $addons = $record->addons->unique('id');
+
+                        return $addons->count()
+                            ? $addons->count() . ' Addons (' . $addons->sum('price') . ' ETB)'
+                            : 'No Addons';
+                    })
+                    ->badge()
+                    ->color('success')
+                    ->tooltip(function ($record) {
+                        return $record->addons
+                            ->unique('id')
+                            ->map(fn ($addon) =>
+                                "{$addon->name} - {$addon->price} ETB"
+                            )
+                            ->join("\n");
+                    }),
                 TextColumn::make('valid_until')
                         ->date()
                         ->label('Expiry Date')
@@ -333,6 +354,7 @@ class MemberTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
             ])
+            ->defaultSort('created_at', 'desc')
             ->deferLoading() // Adds a nice loading shimmer
             ->striped()
             ->filters([
@@ -430,51 +452,43 @@ class MemberTable
 
                             $data['user'] = $record->user->toArray();
                         }
+                        $data['addons'] = $record->addons()
+                        ->pluck('addons.id')
+                        ->toArray();
                         $form->fill($data);
                     })
-                    ->action(function (Member $record, array $data): Member {
-                        Log::info('Update data:', $data); // See what's being passed
-
-                        Log::info('Status value debug:', [
-                            'status_value' => $data['status'] ?? null,
-                            'status_type' => gettype($data['status'] ?? null),
-                            'status_json' => json_encode($data['status'] ?? null),
-                            'full_data_keys' => array_keys($data),
-
-                            'phone_value' => $data['emergency_contact_phone'] ?? null,
-                            'phone_type' => gettype($data['emergency_contact_phone'] ?? null),
-                            'phone_json' => json_encode($data['emergency_contact_phone'] ?? null),
-                        ]);
-
-                        $userData = $data['user'] ?? null;
-
-                        unset($data['user']);
-
-                        $record->update($data);  // Update main member
-            
-                        if ($userData && $record->user) {
-                            
-                                $record->user->update($userData);
-                           
+                    ->action(function (
+                        Member $record,
+                        array $data
+                    ) {
+                    
+                        try {
+                    
+                            $member = app(
+                                MemberUpdateService::class
+                            )->update(
+                                $record,
+                                $data
+                            );
+                    
+                            Notification::make()
+                                ->success()
+                                ->title('Member Updated')
+                                ->body(
+                                    "{$member->user->name} updated successfully."
+                                )
+                                ->send();
+                    
+                        } catch (\Throwable $e) {
+                    
+                            report($e);
+                    
+                            Notification::make()
+                                ->danger()
+                                ->title('Update Failed')
+                                ->body($e->getMessage())
+                                ->send();
                         }
-
-                        // Recalculate dates
-                        $package = Package::find($data['package_id'] ?? $record->package_id);
-                        if ($package) {
-                            $durationUnit = $package->duration_unit ?? 'month';
-                            $startingDate = $data['starting_date'] ?? $record->starting_date ?? Carbon::now()->toDateString();
-                            $duration = (int) ($data['duration_value'] ?? $record->duration_value ?? 1);
-
-                            $from = Carbon::parse($startingDate);
-                            $until = $from->copy()->add($duration, $durationUnit);
-
-                            $record->update([
-                                'valid_from' => $from->toDateString(),
-                                'valid_until' => $until->toDateString(),
-                            ]);
-                        }
-
-                        return $record;
                     }),
                
                     
@@ -633,41 +647,26 @@ class MemberTable
                         ]);
                     })
 
-                    ->action(function (Member $record, array $data) {
-                        $payment = Payment::create([
-                            'member_id' => $record->id,
-                            'package_id' => $data['package_id'],
-                            'amount' => $data['amount'],
-                            'payment_method' => $data['payment_method'],
-                            'payment_date' => now(),
-                            'valid_from' => $data['valid_from'],
-                            'valid_until' => $data['valid_until'],
-                            'transaction_id' => 'TXN-' . strtoupper(Str::random(8)),
-                            'status' => 'completed',
-                            'duration_value' => $data['duration_value'],
-                            'addons' => $data['addons'] ?? [],
-                            'notes' => $data['notes'] ?? 'Manual payment via Member Table',
-                        ]);
-
-                        $record->update([
-                            'valid_until' => $data['valid_until'],
-                            'status' => 'active',
-                        ]);
-
-                        // Sync recurring addons back to member profile
-                        if (!empty($data['addons'])) {
-                            $recurring = Addon::whereIn('id', $data['addons'])
-                                ->where('is_recurring', true)
-                                ->pluck('id');
-                            $record->addons()->syncWithoutDetaching($recurring);
-                        }
-
+                    ->action(function (
+                        Member $record,
+                        array $data
+                    ) {
+                    
+                        app(PaymentService::class)
+                            ->createMembershipPayment(
+                                member: $record,
+                                packageId: $data['package_id'],
+                                addonIds: $data['addons'] ?? [],
+                                durationValue: $data['duration_value'],
+                                paymentMethod: $data['payment_method'],
+                                notes: $data['notes'] ?? null,
+                            );
+                    
                         Notification::make()
-                            ->title('Payment Processed')
-                            ->body("Payment of {$data['amount']} Birr recorded. Expiry updated to {$data['valid_until']}")
                             ->success()
+                            ->title('Payment Created')
                             ->send();
-                    }),
+                    })
 
             ])
             ->toolbarActions([
@@ -678,7 +677,21 @@ class MemberTable
                         ->icon('heroicon-o-credit-card')
                         ->color('success')
                         ->action(function (Collection $records) {
-                            self::processBulkAutoPayments($records);
+
+                            $result = app(
+                                BulkPaymentService::class
+                            )->process($records);
+                    
+                            $message =
+                                "Successful: {$result['success']}\n" .
+                                "Failed: {$result['failed']}\n" .
+                                "Skipped: {$result['skipped']}";
+                    
+                            Notification::make()
+                                ->title('Bulk Payment Completed')
+                                ->body($message)
+                                ->success()
+                                ->send();
                         })
                         ->requiresConfirmation()
                         ->modalHeading('Confirm Bulk Payments')
@@ -711,139 +724,4 @@ class MemberTable
 
     }
 
-
-
-    protected static function processAutoPayment(Member $member): void
-    {
-        // Get the package
-        $package = $member->package;
-        if (!$package) {
-            throw new Exception("Member doesn't have a valid package assigned");
-        }
-
-        $validFrom = self::determineValidFromDateForMember($member);
-        $validUntil = self::calculateValidUntilForMember($member, $validFrom);
-        $amount = self::calculatePaymentAmountForMember($member);
-
-        // Create payment
-        $payment = Payment::create([
-            'member_id' => $member->id,
-            'package_id' => $package->id,
-            'amount' => $amount,
-            'payment_method' => 'cash',
-            'payment_date' => now(),
-            'valid_from' => $validFrom,
-            'valid_until' => $validUntil,
-            'transaction_id' => 'AUTO-' . strtoupper(Str::random(8)),
-            'status' => 'completed',
-            'duration_value' => $member->duration_value ?: 1,
-            'notes' => 'Auto-generated payment from member profile',
-        ]);
-
-        // Update member's valid_until to the new expiry
-        $member->update([
-            'valid_until' => $validUntil,
-            'status' => 'active',
-        ]);
-
-        // Notify user
-        Notification::make()
-            ->title('Payment Processed Successfully')
-            ->body("payment of {$amount} Birr is Done for {$member->user->name}. New expiry: {$validUntil->format('Y-m-d')}")
-            ->success()
-            ->send();
-    }
-
-
-    protected static function processBulkAutoPayments(Collection $members): void
-    {
-        $successCount = 0;
-        $errorCount = 0;
-        $errorMessages = [];
-        $skippedMembers = [];
-
-        foreach ($members as $member) {
-            try {
-                // Skip members without required data
-                if (!$member->package_id || !$member->duration_value || $member->duration_value <= 0) {
-                    $skippedMembers[] = $member->user->name;
-                    continue;
-                }
-
-                // Get the package
-                $package = $member->package;
-                if (!$package) {
-                    $errorMessages[] = "{$member->user->name}: No valid package assigned";
-                    $errorCount++;
-                    continue;
-                }
-
-                // Use trait methods for calculations
-                $validFrom = self::determineValidFromDateForMember($member);
-                $validUntil = self::calculateValidUntilForMember($member, $validFrom);
-                $amount = self::calculatePaymentAmountForMember($member);
-
-                // Create payment
-                Payment::create([
-                    'member_id' => $member->id,
-                    'package_id' => $package->id,
-                    'amount' => $amount,
-                    'payment_method' => 'cash',
-                    'payment_date' => now(),
-                    'valid_from' => $validFrom,
-                    'valid_until' => $validUntil,
-                    'transaction_id' => 'AUTO-' . strtoupper(Str::random(8)),
-                    'status' => 'completed',
-                    'duration_value' => $member->duration_value ?: 1,
-                    'notes' => 'Auto-generated bulk payment from member profile',
-                ]);
-
-                // Update member's valid_until to the new expiry
-                $member->update([
-                    'valid_until' => $validUntil,
-                    'status' => 'active',
-                ]);
-
-                $successCount++;
-
-            } catch (Exception $e) {
-                $errorMessages[] = "{$member->user->name}: {$e->getMessage()}";
-                $errorCount++;
-            }
-        }
-
-        // Prepare notification message
-        $message = "Bulk payment processing completed:\n";
-        $message .= "✅ Successful: {$successCount}\n";
-
-        if ($skippedMembers) {
-            $message .= "⏭️ Skipped (missing data): " . count($skippedMembers) . "\n";
-        }
-
-        if ($errorCount > 0) {
-            $message .= "❌ Failed: {$errorCount}\n";
-            $message .= "Error details:\n" . implode("\n", $errorMessages);
-        }
-
-        // Send notification
-        if ($successCount > 0) {
-            Notification::make()
-                ->title('Bulk Payments Completed Successfully')
-                ->body($message)
-                ->success()
-                ->send();
-        } elseif ($errorCount > 0) {
-            Notification::make()
-                ->title('Bulk Payments Failed')
-                ->body($message)
-                ->danger()
-                ->send();
-        } else {
-            Notification::make()
-                ->title('No Valid Members for Bulk Payment')
-                ->body('All selected members were skipped due to missing package or duration settings.')
-                ->warning()
-                ->send();
-        }
-    }
 }
